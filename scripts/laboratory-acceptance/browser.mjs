@@ -129,14 +129,7 @@ async function stageAction(page, phase) {
 		card = preferred ?? anyPlayable ?? card;
 		await card.waitFor({ state: 'visible', timeout: TIMEOUT });
 		await card.tap({ timeout: TIMEOUT });
-		assert.equal(
-			await card.getAttribute('aria-pressed'),
-			'true',
-			'touch should select the chosen pair',
-		);
-		const confirm = page.getByRole('button', { name: /confirm pair/i });
-		await confirm.waitFor({ state: 'visible', timeout: TIMEOUT });
-		await confirm.click({ timeout: TIMEOUT });
+		assert.equal(await page.getByRole('button', { name: /confirm pair/i }).count(), 0);
 		return anyPlayable !== null;
 	}
 	if (phase === 'PlayingSelectedPair') return;
@@ -221,22 +214,61 @@ async function checkLayout(page, outputDir, label, width, height, options = {}) 
 	};
 }
 
+async function finishRollWhenReady(page, apiOrigin, gameId, version) {
+	const deadline = Date.now() + TIMEOUT;
+	while (Date.now() < deadline) {
+		if ((await publicSnapshot(page.request, apiOrigin, gameId)).version > version) return;
+		// A one-click roll can finish while the API snapshot or UI catches up. Click only an
+		// available recovery control atomically; never leave a locator waiting on a later turn.
+		const clicked = await page.evaluate(() => {
+			const action = [...document.querySelectorAll('button')].find((button) => {
+				const accessible = button.cloneNode(true);
+				accessible.querySelectorAll('[aria-hidden="true"]').forEach((node) => node.remove());
+				const label = (button.getAttribute('aria-label') ?? accessible.textContent ?? '')
+					.replace(/\s+/g, ' ')
+					.trim();
+				const rect = button.getBoundingClientRect();
+				return (
+					/^finish roll$/i.test(label) &&
+					!button.matches(':disabled') &&
+					button.getAttribute('aria-disabled') !== 'true' &&
+					rect.width > 0 &&
+					rect.height > 0 &&
+					getComputedStyle(button).visibility === 'visible'
+				);
+			});
+			if (!action) return false;
+			action.click();
+			return true;
+		});
+		if (clicked) return;
+		await new Promise((resolve) => setTimeout(resolve, 50));
+	}
+	throw new Error('Timed out waiting for interrupted-roll recovery control');
+}
+
 async function advanceToPhase({ phase, hostPage, friendPage, apiOrigin, gameId }) {
-	let currentPhase = (await publicSnapshot(hostPage.request, apiOrigin, gameId)).lab.turn.phase;
-	const phaseOrder = PHASES;
+	const targetIndex = PHASES.indexOf(phase);
+	assert.ok(targetIndex >= 0, 'unsupported target phase');
 	let advances = 0;
-	while (phaseOrder.indexOf(currentPhase) < phaseOrder.indexOf(phase)) {
-		assert.ok(advances++ < 20, 'could not reach a playable pair after repeated server rolls');
+	while (true) {
 		const turnState = await publicSnapshot(hostPage.request, apiOrigin, gameId);
+		const currentPhase = turnState.lab.turn.phase;
+		const currentIndex = PHASES.indexOf(currentPhase);
+		assert.ok(currentIndex >= 0, 'unsupported current phase');
+		if (currentIndex >= targetIndex) return;
+		assert.ok(advances++ < 20, 'could not reach a playable pair after repeated server rolls');
 		const activePage = turnState.activeSeat === 'White' ? hostPage : friendPage;
-		await stageAction(activePage, currentPhase);
-		const nextState = await waitForState(
+		if (currentPhase === 'AwaitingSecondRoll')
+			await finishRollWhenReady(activePage, apiOrigin, gameId, turnState.version);
+		else await stageAction(activePage, currentPhase);
+		// Unplayable pairs can pass back into the same phase on the next turn.
+		await waitForState(
 			activePage.request,
 			apiOrigin,
 			gameId,
-			(state) => state?.version > turnState.version && state?.lab?.turn?.phase !== currentPhase,
+			(state) => state?.version > turnState.version,
 		);
-		currentPhase = nextState.lab.turn.phase;
 	}
 }
 
