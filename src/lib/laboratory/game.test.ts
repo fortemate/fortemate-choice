@@ -8,7 +8,7 @@ import { DiceChess } from '@fortemate/dicechess-engine/rules';
 import type { MoveTree } from '../moveTreeWalker';
 import type { LaboratoryApi, LaboratoryGameState } from './api';
 import { LaboratoryGame } from './game.svelte';
-import type { CommandFrame, PublicTurn } from './protocol';
+import type { CommandFrame, PairIndex, PublicTurn } from './protocol';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const gameId = 'a12b3456-7890-4abc-def0-1234567890ab';
@@ -130,7 +130,7 @@ describe('LaboratoryGame', () => {
 		expect(game.rollingDice).toBe(true);
 		game.frame(receipt);
 		game.rollDice();
-		game.confirmPair();
+		game.choosePair(1);
 		expect(send).toHaveBeenCalledTimes(2);
 		game.frame({
 			LabCommandApplied: { commandId: second.LabCommand.commandId, appliedVersion: 9 },
@@ -139,7 +139,7 @@ describe('LaboratoryGame', () => {
 		game.accept(state('AwaitingPairChoice', { version: 9 }), 'White');
 		expect(game.pending).toBe(false);
 		expect(game.rollingDice).toBe(false);
-		expect(game.tentative).toBeNull();
+		expect(game.state?.lab.turn.selectedPairIndex).toBeNull();
 		expect(send).toHaveBeenCalledTimes(2);
 	});
 
@@ -306,20 +306,100 @@ describe('LaboratoryGame', () => {
 		expect(game.pending).toBe(true);
 	});
 
-	it('keeps tentative pair choice local until explicit confirmation, then freezes it pending', () => {
-		vi.stubGlobal('crypto', { randomUUID: vi.fn(() => commandId) });
+	it.each([0, 1] as const)(
+		'sends pair %i immediately and ignores further choices while pending',
+		(index) => {
+			vi.stubGlobal('crypto', { randomUUID: vi.fn(() => commandId) });
+			const initial = state('AwaitingPairChoice');
+			const { game, send } = setup(initial);
+			expect(send).not.toHaveBeenCalled();
+			game.choosePair(index);
+			game.choosePair(index === 0 ? 1 : 0);
+			game.choosePair(index);
+			expect(send).toHaveBeenCalledExactlyOnceWith({
+				LabCommand: { commandId, expectedVersion: 7, action: { ChoosePair: { pairIndex: index } } },
+			});
+			expect(game.pending).toBe(true);
+			expect(game.state?.lab.turn).toEqual(initial.lab.turn);
+			expect(game.state?.lab.turn.selectedPairIndex).toBeNull();
+			expect(game.canMove).toBe(false);
+		},
+	);
+
+	it.each(['receipt first', 'state first'])(
+		'waits for the authoritative chosen pair and matching receipt (%s)',
+		(order) => {
+			const { game, send } = setup(state('AwaitingPairChoice'));
+			game.choosePair(0);
+			const first = send.mock.calls[0][0] as CommandFrame;
+			const receipt = {
+				LabCommandApplied: { commandId: first.LabCommand.commandId, appliedVersion: 8 },
+			};
+			const accepted = state('PlayingSelectedPair', { version: 8 });
+			if (order === 'receipt first') game.frame(receipt);
+			else game.accept(accepted, 'White');
+			expect(game.pending).toBe(true);
+			game.choosePair(1);
+			expect(send).toHaveBeenCalledTimes(1);
+			if (order === 'receipt first') game.accept(accepted, 'White');
+			else game.frame(receipt);
+			expect(game.pending).toBe(false);
+			expect(game.state?.lab.turn.selectedPairIndex).toBe(0);
+			expect(game.canMove).toBe(true);
+		},
+	);
+
+	it.each(['wrong stage', 'wrong seat', 'disconnected', 'ended', 'invalid index'])(
+		'ignores an immediate pair choice for %s',
+		(condition) => {
+			const current = state(
+				condition === 'wrong stage' ? 'AwaitingFirstRoll' : 'AwaitingPairChoice',
+			);
+			if (condition === 'wrong seat') current.activeSeat = 'Black';
+			if (condition === 'ended')
+				current.status = {
+					Ended: { over: { result: { Win: { side: 'Black' } }, termination: 'Resign' } },
+				};
+			const { game, send } = setup(current);
+			if (condition === 'disconnected') game.status(false);
+			game.choosePair(condition === 'invalid index' ? (2 as PairIndex) : 1);
+			expect(send).not.toHaveBeenCalled();
+			expect(game.pending).toBe(false);
+		},
+	);
+
+	it('allows an explicit retry after a pair command cannot be sent without locking a choice locally', () => {
 		const { game, send } = setup(state('AwaitingPairChoice'));
-		game.chooseTentative(1);
-		expect(game.tentative).toBe(1);
-		expect(send).not.toHaveBeenCalled();
-		game.confirmPair();
-		game.chooseTentative(0);
-		game.confirmPair();
-		expect(game.tentative).toBe(1);
-		expect(send).toHaveBeenCalledTimes(1);
-		expect(send.mock.calls[0][0]).toMatchObject({
-			LabCommand: { expectedVersion: 7, action: { ChoosePair: { pairIndex: 1 } } },
+		send.mockReturnValueOnce(false);
+		game.choosePair(1);
+		expect(game.pending).toBe(false);
+		expect(game.state?.lab.turn.selectedPairIndex).toBeNull();
+		game.choosePair(0);
+		expect(send).toHaveBeenCalledTimes(2);
+		const [first, second] = send.mock.calls.map(([frame]) => frame as CommandFrame);
+		expect(second.LabCommand.commandId).not.toBe(first.LabCommand.commandId);
+		expect(second.LabCommand).toMatchObject({
+			expectedVersion: 7,
+			action: { ChoosePair: { pairIndex: 0 } },
 		});
+		expect(game.pending).toBe(true);
+	});
+
+	it('does not replay or select a pair when reconnect restores an unconfirmed choice', () => {
+		const current = state('AwaitingPairChoice');
+		const { game, send } = setup(current);
+		game.choosePair(1);
+		const first = send.mock.calls[0][0] as CommandFrame;
+		game.status(false);
+		game.accept(current, 'White');
+		game.status(true, true);
+		expect(game.pending).toBe(false);
+		expect(game.state?.lab.turn.selectedPairIndex).toBeNull();
+		expect(send).toHaveBeenCalledTimes(1);
+		game.choosePair(0);
+		const second = send.mock.calls[1][0] as CommandFrame;
+		expect(second.LabCommand.commandId).not.toBe(first.LabCommand.commandId);
+		expect(second.LabCommand.action).toEqual({ ChoosePair: { pairIndex: 0 } });
 	});
 
 	it('keeps equal offers addressable by index and allows choosing a pair with no legal move', () => {
@@ -343,8 +423,7 @@ describe('LaboratoryGame', () => {
 		]);
 		expect(game.offerPlayable(0)).toBe(false);
 		expect(game.offerPlayable(1)).toBe(false);
-		game.chooseTentative(1);
-		game.confirmPair();
+		game.choosePair(1);
 		expect(send).toHaveBeenCalledTimes(1);
 		expect(send.mock.calls[0][0]).toMatchObject({
 			LabCommand: { action: { ChoosePair: { pairIndex: 1 } } },

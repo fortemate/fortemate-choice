@@ -243,19 +243,17 @@
 								type="button"
 								class="lab-pair-card"
 								class:lab-pair-chosen={chosen}
-								class:lab-pair-tentative={game.tentative === index &&
-									turn.selectedPairIndex === null}
 								class:lab-pair-discarded={turn.selectedPairIndex !== null && !chosen}
 								aria-label={pairLabel(index)}
 								aria-describedby={unplayable ? `lab-pair-pass-${index}` : undefined}
-								aria-pressed={chosen || game.tentative === index}
+								aria-pressed={chosen}
 								disabled={!selectable}
 								data-stage-action={selectable ? '' : undefined}
-								onclick={() => game.chooseTentative(index as PairIndex)}
+								onclick={() => game.choosePair(index as PairIndex)}
 							>
 								<span class="lab-pair-caption"
 									>{m.lab_game_pair({ number: index + 1 })}<span aria-hidden="true"
-										>{chosen ? '✓' : game.tentative === index ? '○' : ''}</span
+										>{chosen ? '✓' : ''}</span
 									></span
 								>
 								<span class="lab-pair-dice" aria-hidden="true"
@@ -268,15 +266,12 @@
 								>
 								<span
 									class="lab-pair-state"
-									class:lab-pair-state-idle={turn.selectedPairIndex === null &&
-										game.tentative !== index}
+									class:lab-pair-state-idle={turn.selectedPairIndex === null}
 									>{chosen
 										? m.lab_game_locked()
 										: turn.selectedPairIndex !== null
 											? m.lab_game_not_selected()
-											: game.tentative === index
-												? m.lab_game_tentative()
-												: m.lab_game_whole()}</span
+											: m.lab_game_whole()}</span
 								>
 								{#if unplayable}<span
 										id={`lab-pair-pass-${index}`}
@@ -315,19 +310,9 @@
 						>{game.rollingDice ? m.lab_game_rolling_dice() : m.lab_game_finish_roll()}
 						<span aria-hidden="true">↗</span></button
 					>{/if}
-				{#if turn.phase === 'AwaitingPairChoice' && ownTurn}<button
-						type="button"
-						class="lab-primary"
-						disabled={!game.canAct || game.tentative === null}
-						onclick={() => game.confirmPair()}
-						>{game.tentative === null
-							? m.lab_game_confirm_empty()
-							: m.lab_game_confirm({ number: game.tentative + 1 })}
-						<span aria-hidden="true">→</span></button
-					>
-					<p class="lab-fineprint">
-						{m.lab_game_pass_description()}
-					</p>{/if}
+				{#if turn.phase === 'AwaitingPairChoice' && game.pending}
+					<p class="lab-choice-status" role="status">{m.lab_game_choosing()}</p>
+				{/if}
 				{#if turn.phase === 'PlayingSelectedPair'}
 					<div class="lab-selected-summary">
 						<span class="lab-selected-pair-name lab-sr">{pairLabel(turn.selectedPairIndex!)}</span>
