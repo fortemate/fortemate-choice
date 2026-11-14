@@ -41,6 +41,9 @@ jobs:
       - name: Run unit and oracle tests
         run: npm test
 
+      - name: Test CI event and PR policy boundaries
+        run: npm run test:ci-policy
+
       - name: Check installed and server rules versions
         run: npm run check:rules-version
 
@@ -83,12 +86,18 @@ jobs:
           CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: ${{ runner.temp }}/choice-preview-tunnel
 
       - name: Analyze with SonarQube Cloud
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
         uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: -Dsonar.qualitygate.wait=true
+
+      - name: Explain deferred Dependabot analysis
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+        run: |
+          echo '### Sonar analysis deferred' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Dependabot PRs run all tests and builds without Sonar credentials. Sonar analysis and its quality gate run on main after merge; this PR has not received a Sonar analysis.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload laboratory screenshots
         if: always()
