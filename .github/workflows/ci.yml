@@ -84,6 +84,9 @@ jobs:
           CHOICE_PREVIEW_APP_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-app
           CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-admin
           CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: ${{ runner.temp }}/choice-preview-tunnel
+          CHOICE_DATABASE_SUBNET: 10.250.10.0/28
+          CHOICE_EDGE_SUBNET: 10.250.10.16/28
+          CHOICE_CONNECTOR_SUBNET: 10.250.10.32/28
 
       - name: Validate the dedicated Choice release build without deployment
         run: npm run build:release && npm run check:hosting
@@ -98,6 +101,12 @@ jobs:
           CHOICE_PREVIEW_APP_PASSWORD_FILE: ${{ runner.temp }}/choice-release-app
           CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE: ${{ runner.temp }}/choice-release-admin
           CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: ${{ runner.temp }}/choice-release-tunnel
+          CHOICE_DATABASE_SUBNET: 10.250.11.0/28
+          CHOICE_EDGE_SUBNET: 10.250.11.16/28
+          CHOICE_CONNECTOR_SUBNET: 10.250.11.32/28
+
+      - name: Verify required and isolated Choice network allocations
+        run: npm run test:choice:networks
 
       - name: Analyze with SonarQube Cloud
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')

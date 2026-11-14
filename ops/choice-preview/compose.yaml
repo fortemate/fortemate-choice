@@ -119,10 +119,19 @@ volumes:
 networks:
   database:
     internal: true
+    ipam:
+      config:
+        - subnet: ${CHOICE_DATABASE_SUBNET:?Set CHOICE_DATABASE_SUBNET to a reserved non-overlapping CIDR}
   edge:
     internal: true
+    ipam:
+      config:
+        - subnet: ${CHOICE_EDGE_SUBNET:?Set CHOICE_EDGE_SUBNET to a reserved non-overlapping CIDR}
   connector-egress:
     internal: false
+    ipam:
+      config:
+        - subnet: ${CHOICE_CONNECTOR_SUBNET:?Set CHOICE_CONNECTOR_SUBNET to a reserved non-overlapping CIDR}
 
 secrets:
   choice_preview_app_password:
