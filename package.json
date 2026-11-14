@@ -23,6 +23,7 @@
 		"preview:laboratory": "vite preview --config vite.laboratory.config.ts --port 4175 --strictPort",
 		"build:hosting": "cf build --mode cloudflare-preview",
 		"build:closed-preview": "cf build --mode cloudflare-closed-preview",
+		"build:release": "cf build --mode cloudflare-release",
 		"preview:hosting": "vite preview --mode cloudflare-preview",
 		"check:hosting": "tsc --project hosting/tsconfig.json",
 		"test:hosting": "playwright test --config playwright.hosting.config.ts",

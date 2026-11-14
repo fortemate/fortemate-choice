@@ -1,4 +1,5 @@
 import { previewOrigin } from './preview-origin.ts';
+import { privateServiceId } from './service-id.ts';
 
 /** Deployment coordinates are operator inputs, never live infrastructure defaults. */
 export function closedPreviewSettings(env: Record<string, string | undefined>) {
@@ -6,9 +7,6 @@ export function closedPreviewSettings(env: Record<string, string | undefined>) {
 	if (!origin.startsWith('https://choice-preview-') || new URL(origin).port !== '') {
 		throw new Error('Closed preview requires its dedicated HTTPS origin');
 	}
-	const serviceId = env.CHOICE_PREVIEW_VPC_SERVICE_ID ?? '';
-	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId)) {
-		throw new Error('Closed preview requires an explicit VPC service UUID');
-	}
+	const serviceId = privateServiceId(env.CHOICE_PREVIEW_VPC_SERVICE_ID);
 	return { origin, serviceId };
 }
