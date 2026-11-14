@@ -1,0 +1,4 @@
+* text=auto eol=lf
+static/** -text
+scripts/laboratory-acceptance/evidence/** -text
+ops/laboratory-pilot/evidence/** -text

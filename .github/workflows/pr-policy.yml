@@ -1,0 +1,52 @@
+name: PR policy
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  policy:
+    name: Branch convention and leaf issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch and closing issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            const branch = pullRequest.head.ref;
+            const branchPattern = /^(feat|fix|chore|docs|refactor|test|ci|perf)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+            if (!branchPattern.test(branch)) {
+              core.setFailed(`Branch "${branch}" must use <type>/<short-description>, for example feat/standalone-client.`);
+              return;
+            }
+
+            const body = pullRequest.body || "";
+            const closingIssues = [...body.matchAll(/\b(?:closes|fixes|resolves)\s+#([1-9]\d*)\b/gi)];
+            if (closingIssues.length !== 1) {
+              core.setFailed('The pull request description must contain exactly one closing directive, such as "Closes #123".');
+              return;
+            }
+
+            const issueNumber = Number(closingIssues[0][1]);
+            const { data: subIssues } = await github.request(
+              'GET /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              },
+            );
+
+            if (subIssues.length > 0) {
+              core.setFailed(`Issue #${issueNumber} has sub-issues. Close a leaf issue in this pull request instead.`);
+              return;
+            }
+
+            core.info(`Branch convention is valid and the pull request closes leaf issue #${issueNumber}.`);
