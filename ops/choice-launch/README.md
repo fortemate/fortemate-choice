@@ -69,15 +69,15 @@ extension from cloud credits or silently extend the existing pilot's deadline.
 2. Connect its dedicated Tunnel and configure a VPC Service targeting the blueprint's
    internal `choice-preview-api` alias on port `8081`. Verify provider-side connection
    health. Do not expose a public backend hostname or host port.
-3. Protect the new hostname with the owner-only Access policy **before** the first
-   publication. Confirm the reviewed configuration disables `workers.dev` and
-   version-preview URLs, then publish only the reviewed prebuilt artifact using the
-   recorded release coordinates. Admission stays closed and the hostname is already
-   protected during publication. Obtain the newly created Worker's tag and immediately
-   add its **Worker destination** to the same owner-only Access application before any
-   admission. Verify effective Access, hostname routing and disabled alternate endpoints
-   from the provider after both steps. No unexposed registration or extra build mode is
-   required to obtain the tag.
+3. Protect the entire new hostname with an owner-only **hostname-based Access
+   application before** the first publication. Do not add a Worker destination or enable
+   Worker-level Access: [Cloudflare documents that Worker-level Access does not support
+   WebSocket connections](https://developers.cloudflare.com/workers/configuration/cloudflare-access/#protect-one-worker).
+   Confirm the reviewed configuration disables `workers.dev` and version-preview URLs,
+   then publish only the reviewed prebuilt artifact using the recorded release
+   coordinates. Admission stays closed and the hostname is already protected during
+   publication. Verify the effective hostname Access policy, hostname routing and
+   disabled alternate endpoints from the provider before any admission.
 4. Confirm anonymous denial for shell, assets, API and WebSocket paths; verify authorized
    HTTPS health and bidirectional WSS with first-frame seat authentication. Preserve
    no-store/no-referrer/noindex headers and capability fragments. Workers VPC is beta:
