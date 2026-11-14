@@ -559,13 +559,11 @@ export async function runBrowserAcceptance({
 			(state) => state?.lab?.turn?.phase === 'AwaitingPlayers',
 		);
 		assert.ok(sameTurn(publicState(waitingBefore), publicState(waitingAfter)));
-		if (waitingRestart?.savedClocks && waitingAfter.clocks) {
-			checkStoppedClocks(
-				waitingRestart.savedClocks,
-				waitingAfter.clocks,
-				'waiting-room clocks should remain stopped across restart',
-			);
-		}
+		checkStoppedClocks(
+			waitingRestart?.savedClocks,
+			waitingAfter.clocks,
+			'waiting-room clocks should remain stopped across restart',
+		);
 		if (waitingAfter.clocks) {
 			await new Promise((resolve) => setTimeout(resolve, 1100));
 			const waitingLater = await publicSnapshot(hostPage.request, apiOrigin, inviteGameId);

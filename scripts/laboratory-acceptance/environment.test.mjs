@@ -41,6 +41,7 @@ test('cleanup stops independent API processes concurrently and tolerates stop er
 		proxySockets: new Set(),
 		owned: false,
 		cleaning: false,
+		cleanupPromise: null,
 	});
 	let activeStops = 0;
 	let maximumConcurrentStops = 0;

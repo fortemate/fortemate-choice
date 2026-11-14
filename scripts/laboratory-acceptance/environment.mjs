@@ -314,8 +314,7 @@ REVOKE CONNECT ON DATABASE lab225_lab FROM PUBLIC; GRANT CONNECT ON DATABASE lab
 		for (const socket of this.labSockets) socket.destroy();
 	}
 	async cleanup() {
-		if (this.cleanupPromise === undefined || this.cleanupPromise === null)
-			this.cleanupPromise = this.cleanupOwnedResources();
+		this.cleanupPromise ??= this.cleanupOwnedResources();
 		return this.cleanupPromise;
 	}
 	async cleanupOwnedResources() {
