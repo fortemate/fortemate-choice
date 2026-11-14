@@ -1,0 +1,14 @@
+node_modules/
+dist-laboratory/
+src/lib/paraglide/
+project.inlang/*
+!project.inlang/settings.json
+coverage/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+.scannerwork/

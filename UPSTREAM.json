@@ -1,0 +1,653 @@
+{
+	"repository": "https://github.com/fortemate/dicechess-play",
+	"revision": "d383a4109d040e39533af24653579cb783b39936",
+	"description": "Original source hashes before standalone build and branding adaptations; see UPSTREAM.md.",
+	"files": [
+		{
+			"source": "src/lib/live/liveClient.ts",
+			"target": "src/lib/live/liveClient.ts",
+			"sha256": "e522144cc5205bc5f59fc5f9786fd24eae26699faadda4d63ddf011b4e49b555"
+		},
+		{
+			"source": "src/lib/live/liveClient.test.ts",
+			"target": "src/lib/live/liveClient.test.ts",
+			"sha256": "48a3fa9767efa6980da8796b6ad5ba45d89df003f0ba6cb04aa0304c39dae06a"
+		},
+		{
+			"source": "src/lib/live/liveTypes.ts",
+			"target": "src/lib/live/liveTypes.ts",
+			"sha256": "833d93d69349c58d6bc2db0f6cf86237ab674417c159904db9b04147337ab000"
+		},
+		{
+			"source": "src/lib/live/boardGrid.ts",
+			"target": "src/lib/live/boardGrid.ts",
+			"sha256": "e2dbd05e58633bcba177841f0561489d5c151a2e6f870601826cfa9838cd86fe"
+		},
+		{
+			"source": "src/lib/live/boardGrid.test.ts",
+			"target": "src/lib/live/boardGrid.test.ts",
+			"sha256": "f67fbfbb25e109e911c434a1f03d9df67a3d177ed4c7727acae145769890a8f7"
+		},
+		{
+			"source": "src/lib/utils/getPieceImage.ts",
+			"target": "src/lib/utils/getPieceImage.ts",
+			"sha256": "b3bdcc69e72bdbf7548962c1c7fd0e89e50e4c9e37c2c5ec830292b0c1b759bd"
+		},
+		{
+			"source": "src/lib/utils/getPieceImage.test.ts",
+			"target": "src/lib/utils/getPieceImage.test.ts",
+			"sha256": "7d0f06db6c0ff5bbe5d5e63a65aadaec365d9505472906d3d6af4298c6b169b7"
+		},
+		{
+			"source": "static/favicon.svg",
+			"target": "static/favicon.svg",
+			"sha256": "12419b192af3ae04d3778fd94f6a61c196bf6aef5ccde3524441e16e7805fb8b"
+		},
+		{
+			"source": "messages/laboratory.en.json",
+			"target": "messages/laboratory.en.json",
+			"sha256": "0d2853ffd65944c781a435167caed5b483dc77bc28ec2277dc84eb7ea809b70a"
+		},
+		{
+			"source": "messages/laboratory-game.en.json",
+			"target": "messages/laboratory-game.en.json",
+			"sha256": "37320f023682e3bd52fe030938cd05c489499a5b6ab09696da28de2c40ae7255"
+		},
+		{
+			"source": "messages/laboratory-review.en.json",
+			"target": "messages/laboratory-review.en.json",
+			"sha256": "3fc9d3fff29f383985aec9c7e24429aab7a3c80dea22dc4f7d5c311b663a6a14"
+		},
+		{
+			"source": "project.inlang/settings.json",
+			"target": "project.inlang/settings.json",
+			"sha256": "e3e8a01f44dc584110d611bf6ce60021cb37e918df0a1fa90ac8c6f47c7074ee"
+		},
+		{
+			"source": "LICENSE",
+			"target": "LICENSE",
+			"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+		},
+		{
+			"source": ".prettierrc",
+			"target": ".prettierrc",
+			"sha256": "7be7f6d6349080dc7daaec4699faa43945215d11d272fbb98289f1544f8b139b"
+		},
+		{
+			"source": ".prettierignore",
+			"target": ".prettierignore",
+			"sha256": "da5428ee15770e968131f9fd109a9ccfbcd07d8b9c7dd9c1279e0879e29caa70"
+		},
+		{
+			"source": "eslint.config.js",
+			"target": "eslint.config.js",
+			"sha256": "1850dfddf4366fe086b5e44e5e1d7b53745fafcc5379b638f4b062dd6b155105"
+		},
+		{
+			"source": "lefthook.yml",
+			"target": "lefthook.yml",
+			"sha256": "83a45bae44dd666365da975faf18b387c7be7f03b5cbe0e75c4c587b0e5277b0"
+		},
+		{
+			"source": "mise.toml",
+			"target": "mise.toml",
+			"sha256": "18db710146291b8cdc3671b6f56006d54a2f2d9568843ad18e2b7b6d3ae9ca1f"
+		},
+		{
+			"source": "vite.laboratory.config.ts",
+			"target": "vite.laboratory.config.ts",
+			"sha256": "f38053ef100b659933a00e266efcbb1d6e66f66f033c5be533367059e8f62818"
+		},
+		{
+			"source": "playwright.laboratory.config.ts",
+			"target": "playwright.laboratory.config.ts",
+			"sha256": "6d836d6a8ba2d8b19f4a7a56931b4f8ad6c6fe0837286984bfca4ef60df0668c"
+		},
+		{
+			"source": "scripts/verify-laboratory-bundle.mjs",
+			"target": "scripts/verify-laboratory-bundle.mjs",
+			"sha256": "179695d447fa0f3322e09e470a7ff357f1eb4a256d4c5ae8ae523acb9c93a01c"
+		},
+		{
+			"source": "src/laboratory/game.css",
+			"target": "src/laboratory/game.css",
+			"sha256": "bbcc965a0c26711b199a88256f17f1dfe95e99bd96790b1934c9d04655e19314"
+		},
+		{
+			"source": "src/laboratory/laboratory.css",
+			"target": "src/laboratory/laboratory.css",
+			"sha256": "95f1c47d72b7aa47f7e6a357ef00e4179777b33a66be0d5f49b5cbcfd98839e4"
+		},
+		{
+			"source": "src/laboratory/LaboratoryApp.svelte",
+			"target": "src/laboratory/LaboratoryApp.svelte",
+			"sha256": "9d8d11dacc72a729b67e4b6d4de77cdc0a5827a83bdb9caa3034f1cba504c769"
+		},
+		{
+			"source": "src/laboratory/LaboratoryApp.test.ts",
+			"target": "src/laboratory/LaboratoryApp.test.ts",
+			"sha256": "180f56fecc2a4e52c5cf27b782d678adbce7fc182591eb2bde62958139c23f23"
+		},
+		{
+			"source": "src/laboratory/LaboratoryBoard.svelte",
+			"target": "src/laboratory/LaboratoryBoard.svelte",
+			"sha256": "2a4c02e7d8a30d9a0e64f258eccc92965f5af1accccdaa7305cd2a84fca3e20e"
+		},
+		{
+			"source": "src/laboratory/LaboratoryGame.svelte",
+			"target": "src/laboratory/LaboratoryGame.svelte",
+			"sha256": "1f2cd0a6c1d48defc50aa75caa83a963a9b90e74026747faaf2f5a7637f91794"
+		},
+		{
+			"source": "src/laboratory/LaboratoryGame.test.ts",
+			"target": "src/laboratory/LaboratoryGame.test.ts",
+			"sha256": "0e2f500077b75b6ed1afaafe10ca5e597fe51c32dce955ba978edbe9cf6e2615"
+		},
+		{
+			"source": "src/laboratory/LaboratoryPlayBoard.svelte",
+			"target": "src/laboratory/LaboratoryPlayBoard.svelte",
+			"sha256": "3a40dd1f6cd75ac7df335432cd8cb2b70c01711669c809950ea8ae93e214ab0e"
+		},
+		{
+			"source": "src/laboratory/LaboratoryPlayBoard.test.ts",
+			"target": "src/laboratory/LaboratoryPlayBoard.test.ts",
+			"sha256": "cd8241c87940203550b0bcf95cd82d35cc2d43eb68a67305cd618d18988df1c6"
+		},
+		{
+			"source": "src/laboratory/LaboratoryReview.svelte",
+			"target": "src/laboratory/LaboratoryReview.svelte",
+			"sha256": "982534b40d6efc00a87a899a549de30099a16d3d19e0d2a4982c21ab0db315b6"
+		},
+		{
+			"source": "src/laboratory/LaboratoryReview.test.ts",
+			"target": "src/laboratory/LaboratoryReview.test.ts",
+			"sha256": "c381713ab84461d37442db673022c56fc836c79696786aff9f62431eb13a47a2"
+		},
+		{
+			"source": "src/laboratory/main.ts",
+			"target": "src/laboratory/main.ts",
+			"sha256": "03bc66b448f49e134459c5b9b91c64aeadd6b3954aab1906f602b3d428c3834e"
+		},
+		{
+			"source": "src/lib/laboratory/api.test.ts",
+			"target": "src/lib/laboratory/api.test.ts",
+			"sha256": "250a3f36817706c41afdbe49a5e580dff8093b745bb6a6d1c6e6c3d90c5fd6ad"
+		},
+		{
+			"source": "src/lib/laboratory/api.ts",
+			"target": "src/lib/laboratory/api.ts",
+			"sha256": "ede70e17690b8b1cf3547fde9d436f3f8224613bdbff75e76541b41eb997b6cd"
+		},
+		{
+			"source": "src/lib/laboratory/appearance.test.ts",
+			"target": "src/lib/laboratory/appearance.test.ts",
+			"sha256": "1cf3a0674c5f4fc7343157aa5647cdb755d765576e21c17eda4dcc9b645a8d74"
+		},
+		{
+			"source": "src/lib/laboratory/appearance.ts",
+			"target": "src/lib/laboratory/appearance.ts",
+			"sha256": "f3a0b1d68f3e457d4a7521dee3541a1f8d303cbeff6cc35471a3a8211d2e3aba"
+		},
+		{
+			"source": "src/lib/laboratory/connection.test.ts",
+			"target": "src/lib/laboratory/connection.test.ts",
+			"sha256": "6f8864c9058ff14ba2acb7e936f107ea70bc08e982c4ccc68aea04aa5fcce526"
+		},
+		{
+			"source": "src/lib/laboratory/connection.ts",
+			"target": "src/lib/laboratory/connection.ts",
+			"sha256": "6c86852960ca1add095f9c8ad8d6bce755739de4a7abccc40d0239eeae1a8cc2"
+		},
+		{
+			"source": "src/lib/laboratory/game.svelte.ts",
+			"target": "src/lib/laboratory/game.svelte.ts",
+			"sha256": "58b089603c3146ba787dfd1bdae0f85d8632d61164fb7bb0d8685f764bc4147e"
+		},
+		{
+			"source": "src/lib/laboratory/game.test.ts",
+			"target": "src/lib/laboratory/game.test.ts",
+			"sha256": "fa4ad8bb24e4bbddfd25af7ba2375c36711bb5e78f9d6f186468207ef28f321e"
+		},
+		{
+			"source": "src/lib/laboratory/protocol.ts",
+			"target": "src/lib/laboratory/protocol.ts",
+			"sha256": "f0f5d7167cae712ace1a77ef9af50a8301943362dedb7aa97418ea35573ce85e"
+		},
+		{
+			"source": "src/lib/laboratory/records.test.ts",
+			"target": "src/lib/laboratory/records.test.ts",
+			"sha256": "fcbd60a4638ea38247ec511ea9449cac4eb4e24329991de25ca836920066f442"
+		},
+		{
+			"source": "src/lib/laboratory/records.ts",
+			"target": "src/lib/laboratory/records.ts",
+			"sha256": "50b6fb6507e2125bda1ec555f2b1b6c04d2b5ba8a8f7e1a15211da15713ba8ff"
+		},
+		{
+			"source": "src/lib/laboratory/seatLinks.test.ts",
+			"target": "src/lib/laboratory/seatLinks.test.ts",
+			"sha256": "264684c8d0a61e1d55e36eefe517c12d9536524f616b96ea52f5bce5ed16b7eb"
+		},
+		{
+			"source": "src/lib/laboratory/seatLinks.ts",
+			"target": "src/lib/laboratory/seatLinks.ts",
+			"sha256": "df44a279833a47622df334f2a3cbe1d9029c5d8c410cea2918528a1c23538783"
+		},
+		{
+			"source": "src/lib/laboratory/session.svelte.ts",
+			"target": "src/lib/laboratory/session.svelte.ts",
+			"sha256": "e5be7a772bb1298f806b5a8b08a031eeabbf172dfd71a018ce9a8c524ba6b238"
+		},
+		{
+			"source": "src/lib/laboratory/session.test.ts",
+			"target": "src/lib/laboratory/session.test.ts",
+			"sha256": "4cdae0a57ca30f174e2276597047dc99d9f0c40a799810f4305d6221d858bd82"
+		},
+		{
+			"source": "laboratory/index.html",
+			"target": "laboratory/index.html",
+			"sha256": "a1abe96c8c0ee3a994e0585da8bf10e73669796777121a5ac3e638a9e9f59750"
+		},
+		{
+			"source": "laboratory/main.ts",
+			"target": "laboratory/main.ts",
+			"sha256": "0a56b2f5a81d5a642ef986938ca1529248daf63ae1fceac25de3e96d23b2fb93"
+		},
+		{
+			"source": "static/pieces/cburnett/bB.svg",
+			"target": "static/pieces/cburnett/bB.svg",
+			"sha256": "ed48175e9d10e2af93eec41ff65c3db54ee834410819a0e38c650395ea211ad0"
+		},
+		{
+			"source": "static/pieces/cburnett/bK.svg",
+			"target": "static/pieces/cburnett/bK.svg",
+			"sha256": "59af8886bee03b70d7ac53f63e7cba98d7ad00e5bdc20fe76038aeff647422d6"
+		},
+		{
+			"source": "static/pieces/cburnett/bN.svg",
+			"target": "static/pieces/cburnett/bN.svg",
+			"sha256": "21088d8c7ca27501ca349ba67255587a03eb782887ad3d9bcff698bc256e846f"
+		},
+		{
+			"source": "static/pieces/cburnett/bP.svg",
+			"target": "static/pieces/cburnett/bP.svg",
+			"sha256": "4ff4833d493958ab984b42231469e841ba2b90799979d191be0ec8450f2fb494"
+		},
+		{
+			"source": "static/pieces/cburnett/bQ.svg",
+			"target": "static/pieces/cburnett/bQ.svg",
+			"sha256": "08a5618df194664623fc4e535e9f38228f4d857ff2542bc38137802f05717c3e"
+		},
+		{
+			"source": "static/pieces/cburnett/bR.svg",
+			"target": "static/pieces/cburnett/bR.svg",
+			"sha256": "99218927da7217b4fde30291b5077fb922cdb65516513fbf02ca7b4f9b15814e"
+		},
+		{
+			"source": "static/pieces/cburnett/wB.svg",
+			"target": "static/pieces/cburnett/wB.svg",
+			"sha256": "5b164bcb2e1bf44162518ff58b0f3786ed3f53810691d8247e85c38bd412f7c0"
+		},
+		{
+			"source": "static/pieces/cburnett/wK.svg",
+			"target": "static/pieces/cburnett/wK.svg",
+			"sha256": "e26dd949471e97614c6554ab8462b9a091af6020ca8b72f177f0fd68838cf5c1"
+		},
+		{
+			"source": "static/pieces/cburnett/wN.svg",
+			"target": "static/pieces/cburnett/wN.svg",
+			"sha256": "f17bfa341f6e5c0f456f24855a29431336091fd50783a7ead2cee0b9ead883f0"
+		},
+		{
+			"source": "static/pieces/cburnett/wP.svg",
+			"target": "static/pieces/cburnett/wP.svg",
+			"sha256": "0d7c057a0888c1db3d3e091b2869187b054b6740c5871e45c52035fb18fd6d1a"
+		},
+		{
+			"source": "static/pieces/cburnett/wQ.svg",
+			"target": "static/pieces/cburnett/wQ.svg",
+			"sha256": "51cbd6ae36e887ffb7a91f03e0fe4e074606fa0e9483e28bd33fcb5f1a2bab7d"
+		},
+		{
+			"source": "static/pieces/cburnett/wR.svg",
+			"target": "static/pieces/cburnett/wR.svg",
+			"sha256": "993ad53529504bd1d89c60f5b95e9dd462158300d4a06f56644389dd038d50f6"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/browser.mjs",
+			"target": "scripts/laboratory-acceptance/browser.mjs",
+			"sha256": "38975c1f1a7c5fe0798e4ec8cf82b7febc8f894d3a511fb9f97fbb328ddf96b8"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/check-interruptions.mjs",
+			"target": "scripts/laboratory-acceptance/check-interruptions.mjs",
+			"sha256": "96e22aa758d6ee0fabd9b12246055d6fa2fcbcdefef39f44d52ee6f553ddc851"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/environment.mjs",
+			"target": "scripts/laboratory-acceptance/environment.mjs",
+			"sha256": "95554983fea6c545ec0db37d3cea261a0b4ce3e0010b08185b4162ddeddb1b24"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/environment.test.mjs",
+			"target": "scripts/laboratory-acceptance/environment.test.mjs",
+			"sha256": "f1827aa4d5a8176fe093f33a78685c6db72cc4273103b3db448c6a921b9b0603"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/fairness-vectors.json",
+			"target": "scripts/laboratory-acceptance/fairness-vectors.json",
+			"sha256": "5f7eaebe62c94fbbacd0ed40039225545aa535f899047b2687b725b80234f908"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/fixtures.mjs",
+			"target": "scripts/laboratory-acceptance/fixtures.mjs",
+			"sha256": "2000a607684c07302892baeb4cefe16042e317ca9d32737300cf8484e2fdffe4"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/lifecycle.mjs",
+			"target": "scripts/laboratory-acceptance/lifecycle.mjs",
+			"sha256": "8f7492b690abf7af9b31a768d3909a2d4de275eb15ad6db2dda0db4a342766e1"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/lifecycle.test.mjs",
+			"target": "scripts/laboratory-acceptance/lifecycle.test.mjs",
+			"sha256": "87aed918d7cf3208a8f0179619fbf582989e0ace5f7d6098831344026c57a58a"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/oracle.mjs",
+			"target": "scripts/laboratory-acceptance/oracle.mjs",
+			"sha256": "f03098a7ac827e335b1c6d392840b3da993cb4f73d5015c9767f2b3fe4ba418c"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/oracle.test.mjs",
+			"target": "scripts/laboratory-acceptance/oracle.test.mjs",
+			"sha256": "3f519ed1487ceb9ec145d775dfb797cfcc07b33bb19e313ba07312bd8d3a7ac1"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/peer.mjs",
+			"target": "scripts/laboratory-acceptance/peer.mjs",
+			"sha256": "735b88c6de84c2cea30e9e0e4846d26a694871cdd4636d92f24f770528a9c8d4"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/peer.test.mjs",
+			"target": "scripts/laboratory-acceptance/peer.test.mjs",
+			"sha256": "f0790407c991ed84bc0abac372d039d935f06509d63bce3613af6c67bd24a96f"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/process.sh",
+			"target": "scripts/laboratory-acceptance/process.sh",
+			"sha256": "09b9850928af86571a871cc40079b0116c804ebad6fb1cad6ec230a3c0fd0269"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/README.md",
+			"target": "scripts/laboratory-acceptance/README.md",
+			"sha256": "15e2601842d8d9ebccd9fb33af9490e8926b4b325ec880f41a1311c00450c47e"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/REPORT.md",
+			"target": "scripts/laboratory-acceptance/REPORT.md",
+			"sha256": "19fd3ac06d5662d81a03f3bcea148bde803955f6fd7ec96dce69763e02609eab"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/run.mjs",
+			"target": "scripts/laboratory-acceptance/run.mjs",
+			"sha256": "ff506404d50b71a89cc8137bcbbc2b523e7f3ae9523435b8224b2fce2618c2f1"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/acceptance-results.json",
+			"target": "scripts/laboratory-acceptance/evidence/acceptance-results.json",
+			"sha256": "244ee209a10f1427775cf5aeccf776ab22a35a93bf951675a153785c4305e79d"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/both-unplayable.json",
+			"target": "scripts/laboratory-acceptance/evidence/both-unplayable.json",
+			"sha256": "e7cb7bf98d72f5b29e9605a7ad55484cda4c6a305d13e59c93ab3cdd6a370f76"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/castling.json",
+			"target": "scripts/laboratory-acceptance/evidence/castling.json",
+			"sha256": "54519937c33126efc5705300ff981a15f333b69eddac42ec94672a70c6eda317"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/desktop-1440x900.png",
+			"target": "scripts/laboratory-acceptance/evidence/desktop-1440x900.png",
+			"sha256": "26f11b003f960f63657ed5bc3bf34a5857d67968b490985e84f5eacef75effe8"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/equal-offers.json",
+			"target": "scripts/laboratory-acceptance/evidence/equal-offers.json",
+			"sha256": "ef76c9b5f66e2487fd599a3e26a963966c21f78ca59e4b958b704d0887bb2ef9"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/host-board-320x740.png",
+			"target": "scripts/laboratory-acceptance/evidence/host-board-320x740.png",
+			"sha256": "edc50ae006c5ddf63bccb44754ad286a86f5d67cf1f137f32df3fb78f440110a"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/host-board-390x844.png",
+			"target": "scripts/laboratory-acceptance/evidence/host-board-390x844.png",
+			"sha256": "0d78a7be9db13a8eb49f6cfcdccbc95356b1dd842fd8374bc2fefc862fbc5388"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/host-board-844x390.png",
+			"target": "scripts/laboratory-acceptance/evidence/host-board-844x390.png",
+			"sha256": "ef9ce970adb5aa9da7e3225ccc324d9c3f861598c8b626590babaefc6085ecf0"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/incomplete-record-review.png",
+			"target": "scripts/laboratory-acceptance/evidence/incomplete-record-review.png",
+			"sha256": "654eace4859caa32f2baed793cd8a0f076b7061ee11289f21699e8c2e1ae55c3"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/incomplete-record.json",
+			"target": "scripts/laboratory-acceptance/evidence/incomplete-record.json",
+			"sha256": "48e00fceaa7401818004094ce3c4327f64c6c343f839a558847caac8d1365450"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/king-capture.json",
+			"target": "scripts/laboratory-acceptance/evidence/king-capture.json",
+			"sha256": "51864a5ba21a6b74aea4de8a8b4db507cca5dce1cbc2700ac278b4f3eafb7042"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/maximum-consumption.json",
+			"target": "scripts/laboratory-acceptance/evidence/maximum-consumption.json",
+			"sha256": "37c386a281ad5a2e5c6b967b53406fb4d63ec9c3f25108f1655deb9bae494573"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/missing-participant-incomplete.json",
+			"target": "scripts/laboratory-acceptance/evidence/missing-participant-incomplete.json",
+			"sha256": "4a5eb4b0426775cb6b57d76b5bbef0a6eb2c09eb59363bd2830e37ce9bac0b22"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/promotion.json",
+			"target": "scripts/laboratory-acceptance/evidence/promotion.json",
+			"sha256": "a00fa1421bdc520f814927abcc00e595fae0b5c72466287d3e6f523c9779f770"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/protocol-rejections.json",
+			"target": "scripts/laboratory-acceptance/evidence/protocol-rejections.json",
+			"sha256": "9f4749124f0e51af05eaf9c2c3d312f6b9f644b40a93bf6b7d146d84ca2ef8b8"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/review-acceptance-results.json",
+			"target": "scripts/laboratory-acceptance/evidence/review-acceptance-results.json",
+			"sha256": "3d662e6430eb9f41b5b0374f2cfb3c9f03e0d131560385e98d05fe5b51cfc661"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/selection-timeout.json",
+			"target": "scripts/laboratory-acceptance/evidence/selection-timeout.json",
+			"sha256": "29c6e10a68544ecdfe69917dcc8d9cf61fe42dd2b2147414ddd4e996df72d28c"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/SHA256SUMS",
+			"target": "scripts/laboratory-acceptance/evidence/SHA256SUMS",
+			"sha256": "eab46510a56a48584c4b842d22e4c53aff636ffa788cd3e70b7f7d6fd1eb136a"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/terminal-record.json",
+			"target": "scripts/laboratory-acceptance/evidence/terminal-record.json",
+			"sha256": "6bcb742f2c79bbed847ed87bd2499141fcc94fec9fcdc5c691af7821a063ee37"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/transcript-summary.json",
+			"target": "scripts/laboratory-acceptance/evidence/transcript-summary.json",
+			"sha256": "2d1121607b6a7cfb01781f28999a4e7fa401dbfdd4960214de423ed4c0050bcb"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/ui-smoke-choice-desktop-light.png",
+			"target": "scripts/laboratory-acceptance/evidence/ui-smoke-choice-desktop-light.png",
+			"sha256": "ca921518a06d2645756f48c063bae5742c5b24684dbdf2cbeb8ec27fb08dc944"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/ui-smoke-choice-mobile-dark.png",
+			"target": "scripts/laboratory-acceptance/evidence/ui-smoke-choice-mobile-dark.png",
+			"sha256": "77b94b51910f6837e08df305a42b38ac4cf27b4920ee2c7b4c271e8dcde66e09"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/unplayable-over-playable.json",
+			"target": "scripts/laboratory-acceptance/evidence/unplayable-over-playable.json",
+			"sha256": "99ca19bfe0bd3ff307c296ef676574f0911a7580bf51ac0354629c3dbb935a2d"
+		},
+		{
+			"source": "scripts/laboratory-acceptance/evidence/waiting-restart.json",
+			"target": "scripts/laboratory-acceptance/evidence/waiting-restart.json",
+			"sha256": "ad52b42e6c24ee603bc0ac89d985ac51be8a29ffbaabd88a2e7398781f30108c"
+		},
+		{
+			"source": "scripts/laboratory-pilot/configuration.mjs",
+			"target": "scripts/laboratory-pilot/configuration.mjs",
+			"sha256": "22aa2ee9a240c5e6bb11334ebb5e03c5e8793164ec04d4bb02d6b474f633850d"
+		},
+		{
+			"source": "scripts/laboratory-pilot/configuration.test.mjs",
+			"target": "scripts/laboratory-pilot/configuration.test.mjs",
+			"sha256": "09017d9b1fdfbdb0ad8a870ee09fecaaf260b4a15eb4f1d4fdac5f9b25c79b8c"
+		},
+		{
+			"source": "scripts/laboratory-pilot/environment.mjs",
+			"target": "scripts/laboratory-pilot/environment.mjs",
+			"sha256": "8c5f3109739b3de4205f9d429f5516deb103d8b44714e6c31d5575dae74b450f"
+		},
+		{
+			"source": "scripts/laboratory-pilot/environment.test.mjs",
+			"target": "scripts/laboratory-pilot/environment.test.mjs",
+			"sha256": "7e40204e764147c55fa638d382931cfbaf3c591e5c87143498e941d8a2936252"
+		},
+		{
+			"source": "scripts/laboratory-pilot/evidence.test.mjs",
+			"target": "scripts/laboratory-pilot/evidence.test.mjs",
+			"sha256": "9788714424c84f7d6ec69df3e79e727d0d5b66af0fff5184946a8a55cfb626a5"
+		},
+		{
+			"source": "scripts/laboratory-pilot/run.mjs",
+			"target": "scripts/laboratory-pilot/run.mjs",
+			"sha256": "2415322825e409e384832d83e7357eac903bd87432b9df1366d05c548698a697"
+		},
+		{
+			"source": "ops/laboratory-pilot/api-entrypoint.sh",
+			"target": "ops/laboratory-pilot/api-entrypoint.sh",
+			"sha256": "4661eb6f485d440ad11225f166f3cd863abe8483a455e510ebbcb4ced3d89049"
+		},
+		{
+			"source": "ops/laboratory-pilot/backup-rehearsal.sh",
+			"target": "ops/laboratory-pilot/backup-rehearsal.sh",
+			"sha256": "bc27675ed155d97508b1e31b40ddc0b8f7ae9997aaf44aa8f932a487536a12c2"
+		},
+		{
+			"source": "ops/laboratory-pilot/Caddyfile",
+			"target": "ops/laboratory-pilot/Caddyfile",
+			"sha256": "6ccffc0e103aad3c60bad5b2d774504cae549dbac784c56aac96b4745c073b61"
+		},
+		{
+			"source": "ops/laboratory-pilot/check-rehearsal-host.sh",
+			"target": "ops/laboratory-pilot/check-rehearsal-host.sh",
+			"sha256": "b4b5fdb4e58413819ee6a0361ae8d9efd42cb996e856dc2f5c72f0fbfab3c95e"
+		},
+		{
+			"source": "ops/laboratory-pilot/compose.yaml",
+			"target": "ops/laboratory-pilot/compose.yaml",
+			"sha256": "a15dfd4617f0703ae6a11b400749fb2d8012a5d25d27caf7d85f69c2e002f3d0"
+		},
+		{
+			"source": "ops/laboratory-pilot/export.sql",
+			"target": "ops/laboratory-pilot/export.sql",
+			"sha256": "e3c96ae793623926c3d2aa2e42e1c92f6f748f868c3ad5d85f8a9965fdffc1dd"
+		},
+		{
+			"source": "ops/laboratory-pilot/init-database.sql",
+			"target": "ops/laboratory-pilot/init-database.sql",
+			"sha256": "8e0258d9eeb20807abf204802405cb6da15fbb4f7f6b4d6f69e1ff197f7b8e51"
+		},
+		{
+			"source": "ops/laboratory-pilot/operator.env.example",
+			"target": "ops/laboratory-pilot/operator.env.example",
+			"sha256": "d3c052bf4ec3739186107c31889f912ab52152c4f41d113e0399421cbb79e9e2"
+		},
+		{
+			"source": "ops/laboratory-pilot/PLAN.md",
+			"target": "ops/laboratory-pilot/PLAN.md",
+			"sha256": "a2de65da1361e1fd67dda273a72a610744f8ceaf6bd5c7b3fdcf667f3740342d"
+		},
+		{
+			"source": "ops/laboratory-pilot/prepare-rehearsal.sh",
+			"target": "ops/laboratory-pilot/prepare-rehearsal.sh",
+			"sha256": "c36d1f9ad74bcf1d0ae143e8b23e4d2d7e2c142c182e8b3f940c7dfae58983ff"
+		},
+		{
+			"source": "ops/laboratory-pilot/README.md",
+			"target": "ops/laboratory-pilot/README.md",
+			"sha256": "d84e25759fc704e2de053a14fa7b3107dd08491ba616e428183fb8cfee2cca0f"
+		},
+		{
+			"source": "ops/laboratory-pilot/REPORT.md",
+			"target": "ops/laboratory-pilot/REPORT.md",
+			"sha256": "5db54dd5eaf580d7bf1974eafc969c3a73eeee64fc1976f96dac01ef9fdae866"
+		},
+		{
+			"source": "ops/laboratory-pilot/evidence/results.json",
+			"target": "ops/laboratory-pilot/evidence/results.json",
+			"sha256": "68ecbe9e3d667b8d770f500453c5a52ee6ebfbae947d33ac9733a827647c46c2"
+		},
+		{
+			"source": "ops/laboratory-pilot/evidence/SHA256SUMS",
+			"target": "ops/laboratory-pilot/evidence/SHA256SUMS",
+			"sha256": "81406392163fe87997f130e56b49640a3665ea18977db010ef318d13d6a530b7"
+		},
+		{
+			"source": "eslint-local/no-untranslated-text.js",
+			"target": "eslint-local/no-untranslated-text.js",
+			"sha256": "04a12cb35db7dd7848fcf019d158b80be5d1f7a97f76a230636455304c574565"
+		},
+		{
+			"source": "eslint-local/no-untranslated-text.test.ts",
+			"target": "eslint-local/no-untranslated-text.test.ts",
+			"sha256": "c3dded574834501823665f26ffb0e4b12c9c5d8efa4a3277a3e9c378e4564d68"
+		},
+		{
+			"source": "src/routes/live/[id]/ChildStub.test.svelte",
+			"target": "src/laboratory/test-support/ChildStub.svelte",
+			"sha256": "f711aeea5fb69ea2d37a36059da3b21cbe1589355c915fbcb3c8fb9d5485caf4"
+		},
+		{
+			"source": "e2e/laboratory/laboratory.smoke.spec.ts",
+			"target": "e2e/laboratory/laboratory.smoke.spec.ts",
+			"sha256": "25b256cfb1ed75d178cf55a168e544f8abbc766e1ff9c8da1382b993a4eb9072"
+		},
+		{
+			"source": "scripts/verify-rules-version.mjs",
+			"target": "scripts/verify-rules-version.mjs",
+			"sha256": "4b3bd706bee694e1bb2191ba66f234151897e438f9c26789a443b726a5a5afeb"
+		},
+		{
+			"source": "scripts/verify-rules-version.test.mjs",
+			"target": "scripts/verify-rules-version.test.mjs",
+			"sha256": "8e0c3c768f4ec3303344e715c1c1e6491e92fda77baf9b49d4fa98dc424e9b73"
+		},
+		{
+			"source": "src/lib/moveTreeWalker.ts",
+			"target": "src/lib/moveTreeWalker.ts",
+			"sha256": "a8bf7a466ad7ff900339bdc18b1e3e2eca54f2b1fe4d45a04d38aed5a31a1404",
+			"adaptation": "Only the erased MoveTree interface is retained; runtime walker excluded."
+		}
+	]
+}
