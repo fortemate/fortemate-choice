@@ -7,6 +7,11 @@ const GAME_PATH =
 
 export function privateResponse(response: Response, method: string): Response {
 	const headers = new Headers(response.headers);
+	for (const field of (response.headers.get('Connection') ?? '').split(',')) {
+		const name = field.trim();
+		if (name) headers.delete(name);
+	}
+	headers.delete('Connection');
 	headers.set('Referrer-Policy', 'no-referrer');
 	headers.set('X-Robots-Tag', 'noindex, nofollow');
 	headers.set('X-Content-Type-Options', 'nosniff');

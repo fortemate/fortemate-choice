@@ -193,6 +193,26 @@ describe('private laboratory route boundary', () => {
 		expectPrivateHeaders(response);
 	});
 
+	it('strips Connection and its nominated fields from ordinary responses', async () => {
+		const upstream = new Response('fixture', {
+			headers: {
+				Connection: ' X-Hop, , x-SECOND , keep-alive ',
+				'X-Hop': 'first',
+				'X-Second': 'second',
+				'Keep-Alive': 'timeout=5',
+				'Content-Type': 'application/json',
+			},
+		});
+		const { env } = fakeApi(upstream);
+		const response = await privateApi(request('/health'), env);
+		for (const name of ['Connection', 'X-Hop', 'X-Second', 'Keep-Alive'])
+			expect(response.headers.has(name)).toBe(false);
+		expect(response.headers.get('Content-Type')).toBe('application/json');
+		expect(await response.text()).toBe('fixture');
+		expect(upstream.headers.get('X-Hop')).toBe('first');
+		expectPrivateHeaders(response);
+	});
+
 	it('returns a redacted 502 without logging or falling back to global fetch', async () => {
 		const log = vi.spyOn(console, 'log');
 		const error = vi.spyOn(console, 'error');
@@ -233,7 +253,9 @@ describe('WebSocket handoff', () => {
 
 	it('returns the raw 101 endpoint and forwards only allowed handshake headers', async () => {
 		// Node's Response constructor disallows 101; this models the binding's runtime response.
-		const upstream = new Response(null);
+		const upstream = new Response(null, {
+			headers: { Connection: 'Upgrade', Upgrade: 'websocket' },
+		});
 		const endpoint = Object.freeze({});
 		Object.defineProperties(upstream, {
 			status: { value: 101 },
@@ -256,6 +278,8 @@ describe('WebSocket handoff', () => {
 			env,
 		);
 		expect(response).toBe(upstream);
+		expect(response.headers.get('Connection')).toBe('Upgrade');
+		expect(response.headers.get('Upgrade')).toBe('websocket');
 		expect(Reflect.get(response, 'webSocket')).toBe(endpoint);
 		expect([...new Headers(fetch.mock.calls[0][1]?.headers)]).toEqual([
 			['connection', 'Upgrade'],

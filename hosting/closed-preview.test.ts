@@ -13,12 +13,24 @@ describe('closed preview deployment coordinates', () => {
 			serviceId: fixture.CHOICE_PREVIEW_VPC_SERVICE_ID,
 		});
 	});
+	it('normalizes an explicit default HTTPS port', () => {
+		expect(
+			closedPreviewSettings({
+				...fixture,
+				CHOICE_PREVIEW_API_URL: `${fixture.CHOICE_PREVIEW_API_URL}:443`,
+			}),
+		).toEqual({
+			origin: fixture.CHOICE_PREVIEW_API_URL,
+			serviceId: fixture.CHOICE_PREVIEW_VPC_SERVICE_ID,
+		});
+	});
 	it.each([
 		'',
 		'http://127.0.0.1:8081',
 		'https://localhost:9443',
 		'https://api.example.test',
 		'http://choice-preview-web.example.test',
+		'https://choice-preview-web.example.test:9443',
 	])('refuses %s as a closed origin', (origin) => {
 		expect(() => closedPreviewSettings({ ...fixture, CHOICE_PREVIEW_API_URL: origin })).toThrow();
 	});
