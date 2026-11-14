@@ -81,7 +81,18 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: laboratory-previews
-          path: test-results/**/lab-*.png
+          path: |
+            test-results/**/lab-*.png
+            !test-results/hosting/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload native hosting screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hosting-previews
+          path: test-results/hosting/**/lab-*.png
           if-no-files-found: ignore
           retention-days: 7
 
