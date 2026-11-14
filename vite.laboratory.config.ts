@@ -3,8 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { bootstrapAppearance } from './src/lib/laboratory/appearance';
 import { laboratoryOrigin } from './src/lib/laboratory/api';
@@ -12,6 +11,8 @@ import { laboratoryOrigin } from './src/lib/laboratory/api';
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const sourceRoot = path.join(repoRoot, 'src');
 const outDir = path.join(repoRoot, 'dist-laboratory');
+const comparePaths = (left: string, right: string) =>
+	Buffer.compare(Buffer.from(left), Buffer.from(right));
 const allowedSourcePaths = new Set([
 	'src/lib/live/liveClient.ts',
 	'src/lib/live/boardGrid.ts',
@@ -61,7 +62,7 @@ function emitStandaloneFiles(): Plugin {
 						surface: 'laboratory',
 						variant: { id: 'choice-2x2d6', revision: 1 },
 						protocolVersion: 1,
-						modules: [...sourceModules].sort(),
+						modules: [...sourceModules].sort(comparePaths),
 					},
 					null,
 					2,
@@ -100,7 +101,7 @@ function emitStandaloneFiles(): Plugin {
 			const pieceDirectory = path.join(repoRoot, 'static', 'pieces', 'cburnett');
 			for (const name of readdirSync(pieceDirectory)
 				.filter((file) => file.endsWith('.svg'))
-				.sort()) {
+				.sort(comparePaths)) {
 				this.emitFile({
 					type: 'asset',
 					fileName: `pieces/cburnett/${name}`,

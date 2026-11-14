@@ -11,10 +11,13 @@ export const IMAGES = {
 export const APP_ORIGIN = 'https://localhost:8443';
 export const API_ORIGIN = 'https://localhost:9443';
 
+// Stable byte ordering keeps rendered configuration checks independent of host locale.
+const compareNames = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+
 export function validateRehearsal(config, project) {
 	assert.match(project, /^lab229-[a-z0-9-]+$/);
 	assert.equal(config.name, project);
-	assert.deepEqual(Object.keys(config.services).sort(), ['api', 'db', 'gateway']);
+	assert.deepEqual(Object.keys(config.services).sort(compareNames), ['api', 'db', 'gateway']);
 	for (const [name, service] of Object.entries(config.services)) {
 		assert.equal(service.image, IMAGES[name], 'Image must match the reviewed immutable pin');
 		assert.equal(service.user, name === 'db' ? '70:70' : '10001:10001');
@@ -27,7 +30,9 @@ export function validateRehearsal(config, project) {
 		assert.equal(service.container_name, undefined);
 		assert.equal(service.build, undefined);
 		assert.ok(
-			!Object.keys(service.environment ?? {}).some((key) => /TOKEN|SECRET|PASSWORD$/.test(key)),
+			!Object.keys(service.environment ?? {}).some(
+				(key) => /TOKEN|SECRET/.test(key) || /PASSWORD$/.test(key),
+			),
 		);
 		if (name !== 'gateway')
 			assert.equal(service.ports, undefined, 'Only the TLS gateway publishes ports');
@@ -39,15 +44,25 @@ export function validateRehearsal(config, project) {
 		assert.equal(String(port.published), index === 0 ? '8443' : '9443');
 		assert.equal(port.target, index === 0 ? 8443 : 9443);
 	}
-	assert.deepEqual(Object.keys(config.networks).sort(), ['database', 'edge', 'ingress']);
+	assert.deepEqual(Object.keys(config.networks).sort(compareNames), [
+		'database',
+		'edge',
+		'ingress',
+	]);
 	for (const [name, network] of Object.entries(config.networks)) {
 		assert.equal(network.internal ?? false, name !== 'ingress');
 		assert.equal(network.external ?? false, false);
 		assert.equal(network.name, `${project}_${name}`);
 	}
 	assert.deepEqual(Object.keys(config.services.db.networks), ['database']);
-	assert.deepEqual(Object.keys(config.services.gateway.networks).sort(), ['edge', 'ingress']);
-	assert.deepEqual(Object.keys(config.services.api.networks).sort(), ['database', 'edge']);
+	assert.deepEqual(Object.keys(config.services.gateway.networks).sort(compareNames), [
+		'edge',
+		'ingress',
+	]);
+	assert.deepEqual(Object.keys(config.services.api.networks).sort(compareNames), [
+		'database',
+		'edge',
+	]);
 	const volumes = Object.values(config.volumes);
 	assert.equal(volumes.length, 1);
 	assert.equal(volumes[0].name, `${project}_laboratory-data`);

@@ -139,7 +139,7 @@ export class AcceptanceEnvironment {
 		this.assertRunning();
 		const { join = 300, admission = true } = options ?? {};
 		const args = [
-			'bash',
+			'/usr/bin/bash',
 			this.script,
 			'serve',
 			this.stage,
@@ -153,7 +153,14 @@ export class AcceptanceEnvironment {
 			String(admission),
 		];
 		const child = this.wsl
-			? spawn('wsl', [...this.wsl, ...args], { stdio: 'ignore', windowsHide: true })
+			? spawn(
+					resolve(process.env.SystemRoot ?? 'C:/Windows', 'System32/wsl.exe'),
+					[...this.wsl, ...args],
+					{
+						stdio: 'ignore',
+						windowsHide: true,
+					},
+				)
 			: spawn(args[0], args.slice(1), { stdio: 'ignore' });
 		this.children.push(child);
 		await until(

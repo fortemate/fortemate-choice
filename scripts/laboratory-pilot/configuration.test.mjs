@@ -52,6 +52,17 @@ test('accepts a closed, loopback-only, pinned rehearsal', () => {
 	assert.equal(validateRehearsal(fixture(), 'lab229-test').name, 'lab229-test');
 });
 
+test('allows password file paths but refuses token and secret environment entries', () => {
+	const config = fixture();
+	config.services.api.environment.LAB_DB_PASSWORD_FILE = '/run/secrets/database';
+	assert.equal(validateRehearsal(config, 'lab229-test'), config);
+	for (const key of ['ACCESS_TOKEN_FILE', 'SERVICE_SECRET_FILE', 'LAB_DB_PASSWORD']) {
+		const unsafe = structuredClone(config);
+		unsafe.services.api.environment[key] = 'fixture';
+		assert.throws(() => validateRehearsal(unsafe, 'lab229-test'));
+	}
+});
+
 for (const [name, mutate] of [
 	[
 		'public binding',

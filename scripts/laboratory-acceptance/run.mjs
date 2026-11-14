@@ -111,13 +111,13 @@ async function classicControl() {
 	room.white.send({ Resign: {} });
 	const ended = (await room.white.next((value) => value.GameEnded, index)).GameEnded;
 	assert.deepEqual(
-		[...first.dice].sort(),
+		[...first.dice].sort((left, right) => left - right),
 		classicRoll(
 			ended.seed,
 			ended.clientSeeds.white,
 			ended.clientSeeds.black,
 			(Number(rolled.dfen.split(/\s+/)[5]) - 1) * 2 + (rolled.activeSeat === 'Black' ? 1 : 0),
-		).sort(),
+		).sort((left, right) => left - right),
 	);
 	assert.equal(
 		createHash('sha256').update(Buffer.from(ended.seed, 'hex')).digest('hex'),
@@ -527,7 +527,9 @@ try {
 			'\n',
 	);
 	const digests = [];
-	for (const name of (await readdir(output)).sort()) {
+	for (const name of (await readdir(output)).sort((left, right) =>
+		Buffer.compare(Buffer.from(left), Buffer.from(right)),
+	)) {
 		const bytes = await readFile(resolve(output, name));
 		digests.push(`${createHash('sha256').update(bytes).digest('hex')}  ${name}`);
 	}

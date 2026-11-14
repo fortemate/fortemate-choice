@@ -71,7 +71,7 @@ export class Peer {
 	async next(predicate, from = 0) {
 		let match;
 		await until(() => {
-			match = this.frames.slice(from).find(predicate);
+			match = this.frames.slice(from).find((frame) => predicate(frame));
 			return !!match;
 		}, 'participant event');
 		return match;

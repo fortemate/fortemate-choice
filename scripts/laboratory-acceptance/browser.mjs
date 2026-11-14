@@ -69,7 +69,9 @@ function legalPath(tree) {
 	const result = [];
 	let node = tree;
 	while (node && Object.keys(node).length && result.length < 2) {
-		const move = Object.keys(node).sort()[0];
+		const move = Object.keys(node).sort((left, right) =>
+			Buffer.compare(Buffer.from(left), Buffer.from(right)),
+		)[0];
 		result.push(move);
 		node = node[move];
 	}
