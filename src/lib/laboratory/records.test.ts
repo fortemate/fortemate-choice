@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LaboratoryApi, LaboratoryError } from './api';
 import { LaboratoryRecordsApi, parseLaboratoryRematch, parseLaboratoryTranscript } from './records';
 
@@ -37,10 +37,88 @@ const endedTranscript = () => ({
 });
 const response = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-const makeApi = (fetcher: typeof fetch) =>
-	new LaboratoryRecordsApi(new LaboratoryApi('https://lab.example', rulesVersion), fetcher);
+const makeApi = (fetcher: typeof fetch, origin = 'https://lab.example') =>
+	new LaboratoryRecordsApi(new LaboratoryApi(origin, rulesVersion), fetcher);
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('laboratory records API', () => {
+	it.each([
+		['https://choice-preview.example.test', 'https://choice-preview.example.test', 'same-origin'],
+		['http://127.0.0.1:8787', 'http://127.0.0.1:8787', 'same-origin'],
+		['http://127.0.0.1:8787', 'http://127.0.0.1:8081', 'omit'],
+		['https://choice-preview.example.test', 'https://other-preview.example.test', 'omit'],
+		['https://choice-preview.example.test', 'http://choice-preview.example.test', 'omit'],
+	])(
+		'limits transcript and rematch cookies from %s to API %s using %s',
+		async (browserOrigin, apiOrigin, credentials) => {
+			vi.stubGlobal('location', { origin: browserOrigin });
+			const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+			const api = makeApi(async (input, init) => {
+				requests.push({ input, init });
+				return response(
+					new URL(String(input)).pathname.endsWith('/transcript')
+						? endedTranscript()
+						: { phase: 'awaiting_consent' },
+				);
+			}, apiOrigin);
+			await api.transcript(gameId);
+			for (const consent of [true, false]) await api.rematch(gameId, token, consent);
+			expect(requests).toHaveLength(3);
+			expect(requests.map(({ input }) => String(input))).toEqual([
+				`${apiOrigin}/games/${gameId}/transcript`,
+				`${apiOrigin}/games/${gameId}/rematch`,
+				`${apiOrigin}/games/${gameId}/rematch`,
+			]);
+			for (const { input, init } of requests) {
+				expect(init).toMatchObject({
+					credentials,
+					referrerPolicy: 'no-referrer',
+					cache: 'no-store',
+				});
+				const url = new URL(String(input));
+				expect(url.search).toBe('');
+				expect(url.hash).toBe('');
+				expect(url.href).not.toContain(token);
+			}
+			expect(requests[0].init?.method).toBe('GET');
+			expect(requests[0].init?.headers).toBeUndefined();
+			for (const [index, consent] of [true, false].entries()) {
+				expect(requests[index + 1].init).toMatchObject({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'X-Laboratory-Seat-Token': token },
+					body: JSON.stringify({ consent }),
+				});
+			}
+		},
+	);
+
+	it.each(['https://choice-preview.example.test', 'https://other-preview.example.test'])(
+		'never retries transcript or rematch requests rejected by the access gateway at %s',
+		async (origin) => {
+			vi.stubGlobal('location', { origin: 'https://choice-preview.example.test' });
+			for (const operation of ['transcript', 'rematch']) {
+				const fetcher = vi
+					.fn<typeof fetch>()
+					.mockResolvedValue(new Response(null, { status: 403 }));
+				const api = makeApi(fetcher, origin);
+				const rejected =
+					operation === 'transcript' ? api.transcript(gameId) : api.rematch(gameId, token, true);
+				await expect(rejected).rejects.toMatchObject({
+					name: 'LaboratoryError',
+					code: 'unavailable',
+				});
+				expect(fetcher).toHaveBeenCalledOnce();
+				const [input, init] = fetcher.mock.calls[0];
+				expect(String(input)).toBe(`${origin}/games/${gameId}/${operation}`);
+				expect(String(input)).not.toContain(token);
+				expect(init?.credentials).toBe(
+					origin === globalThis.location.origin ? 'same-origin' : 'omit',
+				);
+			}
+		},
+	);
+
 	it('fetches a strict public transcript from the configured origin without ambient credentials', async () => {
 		const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		const api = makeApi(async (input, init) => {

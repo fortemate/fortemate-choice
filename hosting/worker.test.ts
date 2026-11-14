@@ -176,3 +176,61 @@ describe('client route fallback', () => {
 		},
 	);
 });
+
+describe('optional private API binding', () => {
+	it('keeps API routes closed when the binding is absent', async () => {
+		const { env, fetch } = fakeAssets();
+		const upstream = vi.spyOn(globalThis, 'fetch');
+		for (const path of ['/health', `/games/${UUID}`, `/games/${UUID}/moves`]) {
+			expect((await worker.fetch(new Request(`http://localhost${path}`), env)).status).toBe(404);
+		}
+		expect(fetch).not.toHaveBeenCalled();
+		expect(upstream).not.toHaveBeenCalled();
+	});
+
+	it('dispatches permitted API POSTs before the static method guard', async () => {
+		const origin = 'https://choice-preview-fixture.example.test';
+		const { env: assets, fetch: assetFetch } = fakeAssets();
+		const apiFetch = vi.fn(async () => new Response('created', { status: 201 }));
+		const env = { ...assets, PRIVATE_API: { fetch: apiFetch }, PREVIEW_ORIGIN: origin } as Env;
+		const response = await worker.fetch(
+			new Request(`${origin}/games`, { method: 'POST', headers: { Origin: origin } }),
+			env,
+		);
+		expect(response.status).toBe(201);
+		expect(apiFetch).toHaveBeenCalledOnce();
+		expect(assetFetch).not.toHaveBeenCalled();
+		expectPrivateHeaders(response);
+	});
+
+	it('fails closed when a private binding is present without its expected origin', async () => {
+		const { env: assets, fetch: assetFetch } = fakeAssets();
+		const apiFetch = vi.fn();
+		const env = { ...assets, PRIVATE_API: { fetch: apiFetch } } as Env;
+		const response = await worker.fetch(new Request('http://localhost/health'), env);
+		expect(response.status).toBe(503);
+		expectPrivateHeaders(response);
+		expect(apiFetch).not.toHaveBeenCalled();
+		expect(assetFetch).not.toHaveBeenCalled();
+	});
+
+	it('retains static client routes and rejects non-laboratory routes without forwarding', async () => {
+		const { env: assets, fetch: assetFetch } = fakeAssets();
+		const apiFetch = vi.fn();
+		const env = {
+			...assets,
+			PRIVATE_API: { fetch: apiFetch },
+			PREVIEW_ORIGIN: 'https://choice-preview-fixture.example.test',
+		} as Env;
+		expect((await worker.fetch(new Request(`http://localhost/game/${UUID}`), env)).status).toBe(
+			200,
+		);
+		expect(assetFetch).toHaveBeenCalledOnce();
+		for (const method of ['GET', 'POST']) {
+			expect(
+				(await worker.fetch(new Request('http://localhost/lobby/seeks', { method }), env)).status,
+			).toBe(404);
+		}
+		expect(apiFetch).not.toHaveBeenCalled();
+	});
+});

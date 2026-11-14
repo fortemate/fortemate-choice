@@ -3,7 +3,13 @@
  * these public records must never carry seat capabilities, private receipts, or unrevealed dice data.
  */
 import type { GameStatusWire, Seat, Termination, TimeControl } from '../live/liveTypes';
-import { isRecord, isSeat, LaboratoryError, type LaboratoryApi } from './api';
+import {
+	isRecord,
+	isSeat,
+	laboratoryCredentials,
+	LaboratoryError,
+	type LaboratoryApi,
+} from './api';
 import { parseLabState } from './api';
 import type { LabVariant, Provenance, PublicTurn, RematchView } from './protocol';
 
@@ -267,7 +273,7 @@ export class LaboratoryRecordsApi {
 			response = await this.fetcher(new URL(path, this.api.origin), {
 				...init,
 				signal: AbortSignal.timeout(10000),
-				credentials: 'omit',
+				credentials: laboratoryCredentials(this.api.origin),
 				referrerPolicy: 'no-referrer',
 				cache: 'no-store',
 			});
