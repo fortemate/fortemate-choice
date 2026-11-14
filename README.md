@@ -40,6 +40,18 @@ The [hosting decision](docs/hosting-decision.md) selects Cloudflare Workers Stat
 
 ## Repository boundaries
 
+Dependabot PRs run the full test and build pipeline without Sonar credentials. Their
+Sonar analysis and quality gate run on `main` after merge; ordinary same-repository
+PRs retain their pre-merge Sonar check. The PR author determines this boundary,
+including when a maintainer reruns a bot's workflow. Skipped analysis is explicitly
+reported in the CI summary. Fork PRs also receive no Sonar credentials.
+
+The PR policy accepts only verified, same-repository Dependabot updates to root npm
+manifests or GitHub Actions workflows. Other PRs still require a conventional branch
+and one closing leaf issue. Run `npm run test:ci-policy` to check these boundaries.
+TypeScript 7 updates are temporarily ignored until the Svelte checking toolchain is
+compatible; TypeScript 6 updates and other dependency checks remain enabled.
+
 This repository owns the client, its package lock, tests, CI and optional hosting adapter. The API, laboratory database, game rules engine and live pilot remain separate. Its workflows check PRs and main; they do not deploy anything. Public hosting activation, domain cutover and removal of the donor client require separate changes.
 
 Keep the existing backend contract and browser storage identifiers when changing the visible brand. A future domain change needs an explicit plan for existing invitation links and seat recovery; browser storage does not move between origins.
