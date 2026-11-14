@@ -7,6 +7,7 @@ process.env.CHOICE_TEST_APP_ORIGIN = APP_ORIGIN;
 
 export default defineConfig({
 	testDir: 'e2e',
+	outputDir: 'test-results/hosting',
 	testMatch: ['hosting/**/*.spec.ts', 'laboratory/laboratory.smoke.spec.ts'],
 	retries: 0,
 	timeout: 60_000,
