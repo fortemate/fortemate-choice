@@ -15,6 +15,13 @@ const PHASES = [
 	'PlayingSelectedPair',
 ];
 
+export function isOrdinaryApiPath(pathname) {
+	return (
+		/^\/(?:lobby|auth|ingest|ratings?|training|profile)(?:\/|$)/.test(pathname) ||
+		/^\/api\/(?:games|ratings?|training|profile)(?:\/|$)/.test(pathname)
+	);
+}
+
 function safeError(error) {
 	const message = error instanceof Error ? error.message : String(error);
 	return message
@@ -91,6 +98,14 @@ function clockValue(clocks, color) {
 	return Number.isFinite(value) ? value : null;
 }
 
+function checkStoppedClocks(before, after, message) {
+	for (const color of ['white', 'black']) {
+		const saved = clockValue(before, color);
+		const restored = clockValue(after, color);
+		if (saved !== null && restored !== null) assert.ok(Math.abs(restored - saved) <= 500, message);
+	}
+}
+
 async function stageAction(page, phase) {
 	if (phase === 'AwaitingFirstRoll' || phase === 'AwaitingSecondRoll') {
 		const label = phase === 'AwaitingFirstRoll' ? /^roll dice$/i : /^finish roll$/i;
@@ -104,9 +119,9 @@ async function stageAction(page, phase) {
 		let card = cards.first();
 		let preferred = null;
 		let anyPlayable = null;
-		for (let index = 0; index < (await cards.count()); index += 1) {
+		const texts = await cards.allInnerTexts();
+		for (const [index, text] of texts.entries()) {
 			const candidate = cards.nth(index);
-			const text = await candidate.innerText();
 			if (/no legal moves/i.test(text)) continue;
 			anyPlayable ??= candidate;
 			if (/pawn|knight/i.test(text)) preferred ??= candidate;
@@ -139,8 +154,12 @@ async function chooseAndSubmitMove(page, request, apiOrigin, gameId) {
 	const moves = legalPath(body.legalMoves);
 	assert.ok(moves.length, 'selected pair should have a legal move');
 	for (const move of moves) {
-		const from = page.getByRole('gridcell', { name: new RegExp(`^${move.slice(0, 2)}\\b`, 'i') });
-		const to = page.getByRole('gridcell', { name: new RegExp(`^${move.slice(2, 4)}\\b`, 'i') });
+		const from = page.getByRole('gridcell', {
+			name: new RegExp(String.raw`^${move.slice(0, 2)}\b`, 'i'),
+		});
+		const to = page.getByRole('gridcell', {
+			name: new RegExp(String.raw`^${move.slice(2, 4)}\b`, 'i'),
+		});
 		await from.click({ timeout: TIMEOUT });
 		await to.click({ timeout: TIMEOUT });
 		if (move.length === 5) await page.getByRole('button', { name: /queen/i }).click();
@@ -202,6 +221,185 @@ async function checkLayout(page, outputDir, label, width, height, options = {}) 
 	};
 }
 
+async function advanceToPhase({ phase, hostPage, friendPage, apiOrigin, gameId }) {
+	let currentPhase = (await publicSnapshot(hostPage.request, apiOrigin, gameId)).lab.turn.phase;
+	const phaseOrder = PHASES;
+	let advances = 0;
+	while (phaseOrder.indexOf(currentPhase) < phaseOrder.indexOf(phase)) {
+		assert.ok(advances++ < 20, 'could not reach a playable pair after repeated server rolls');
+		const turnState = await publicSnapshot(hostPage.request, apiOrigin, gameId);
+		const activePage = turnState.activeSeat === 'White' ? hostPage : friendPage;
+		await stageAction(activePage, currentPhase);
+		const nextState = await waitForState(
+			activePage.request,
+			apiOrigin,
+			gameId,
+			(state) => state?.version > turnState.version && state?.lab?.turn?.phase !== currentPhase,
+		);
+		currentPhase = nextState.lab.turn.phase;
+	}
+}
+
+async function checkOfflineControls(activePage, phase) {
+	if (phase === 'PlayingSelectedPair') {
+		assert.equal(
+			await activePage.getByRole('gridcell').first().getAttribute('aria-disabled'),
+			'true',
+		);
+		assert.equal(await activePage.getByRole('button', { name: /^submit turn$/i }).count(), 0);
+		assert.equal(await activePage.getByRole('button', { name: /^undo$/i }).count(), 0);
+	} else if (phase === 'AwaitingPairChoice') {
+		const actionable = activePage.locator('.lab-pair-card').first();
+		assert.equal(
+			await actionable.isDisabled(),
+			true,
+			'pair selection should disable while offline',
+		);
+	} else {
+		const actionable = activePage.locator('[data-stage-action]').first();
+		assert.equal(
+			await actionable.isDisabled(),
+			true,
+			'gameplay action should disable while offline',
+		);
+	}
+}
+
+function checkRestoredClocks(recovered, restartResult) {
+	const elapsedSinceRestore = Math.max(0, performance.now() - restartResult.sampledAt);
+	for (const color of ['white', 'black']) {
+		const restoredAtRestart = clockValue(restartResult.restoredClocks, color);
+		const observed = clockValue(recovered.clocks, color);
+		assert.ok(
+			restoredAtRestart !== null && observed !== null,
+			'clock samples should contain both seats',
+		);
+		const activeColor = String(restartResult.activeSeat).toLowerCase() === color;
+		const expected = Math.max(0, restoredAtRestart - (activeColor ? elapsedSinceRestore : 0));
+		assert.ok(
+			Math.abs(observed - expected) <= 500,
+			`recovered ${color} clock should continue from restart baseline within 500ms`,
+		);
+	}
+}
+
+async function recoverPhase({
+	phase,
+	hostPage,
+	friendPage,
+	hostContext,
+	friendContext,
+	apiOrigin,
+	gameId,
+	restart,
+	disconnect,
+	interception,
+	commandCounts,
+	findings,
+}) {
+	interception.holdSecondRoll = phase === 'AwaitingSecondRoll';
+	const heldBefore = interception.heldSecondRolls;
+	await advanceToPhase({ phase, hostPage, friendPage, apiOrigin, gameId });
+	const before = await waitForState(
+		hostPage.request,
+		apiOrigin,
+		gameId,
+		(state) => state?.lab?.turn?.phase === phase,
+	);
+	const beforeSafe = publicState(before);
+	const activePage = before.activeSeat === 'White' ? hostPage : friendPage;
+	if (interception.holdSecondRoll) {
+		const deadline = Date.now() + TIMEOUT;
+		while (interception.heldSecondRolls === heldBefore && Date.now() < deadline)
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		assert.equal(
+			interception.heldSecondRolls,
+			heldBefore + 1,
+			'one second-roll command should be interrupted',
+		);
+		assert.equal(
+			await activePage.locator('.lab-pair-card').count(),
+			0,
+			'partial offers should remain hidden while the second roll is interrupted',
+		);
+	}
+	const commandCount = commandCounts.get(activePage) ?? 0;
+	await hostContext.setOffline(true);
+	await friendContext.setOffline(true);
+	await disconnect();
+	await activePage.locator('.lab-game-notice[role="status"]').waitFor({
+		state: 'visible',
+		timeout: TIMEOUT,
+	});
+	await checkOfflineControls(activePage, phase);
+	const restartResult = await restart(gameId);
+	interception.holdSecondRoll = false;
+	assert.ok(
+		restartResult?.restoredClocks && Number.isFinite(restartResult.sampledAt),
+		'restart hook should return the restored clock baseline and sample time',
+	);
+	await hostContext.setOffline(false);
+	await friendContext.setOffline(false);
+	await hostPage.reload({ waitUntil: 'networkidle', timeout: TIMEOUT });
+	await friendPage.reload({ waitUntil: 'networkidle', timeout: TIMEOUT });
+	const recovered = await waitForState(
+		hostPage.request,
+		apiOrigin,
+		gameId,
+		(state) => state?.lab?.turn?.phase === phase,
+	);
+	const afterSafe = publicState(recovered);
+	assert.ok(recovered.clocks, 'timed recovery should expose both public clocks');
+	checkRestoredClocks(recovered, restartResult);
+	assert.ok(
+		sameTurn(beforeSafe, afterSafe),
+		`public turn should be unchanged after offline/restart at ${phase}`,
+	);
+	await hostPage.getByRole('grid').waitFor({ state: 'visible', timeout: TIMEOUT });
+	await activePage.waitForFunction(
+		(isMovePhase) =>
+			isMovePhase
+				? document.activeElement?.getAttribute('role') === 'gridcell'
+				: document.activeElement?.matches('[data-stage-action]:not(:disabled)') === true,
+		phase === 'PlayingSelectedPair',
+		{ timeout: TIMEOUT },
+	);
+	const beforeTabCount = commandCounts.get(activePage) ?? 0;
+	await activePage.keyboard.press('Tab');
+	assert.equal(
+		await activePage.evaluate(() => document.activeElement === document.body),
+		false,
+		'Tab should move focus to an interactive control',
+	);
+	assert.equal(
+		commandCounts.get(activePage) ?? 0,
+		beforeTabCount,
+		'Tab should not submit a game command',
+	);
+	assert.equal(
+		commandCounts.get(activePage) ?? 0,
+		commandCount,
+		'recovery should not send an automatic gameplay command',
+	);
+	if (phase !== 'PlayingSelectedPair') {
+		const actionable = activePage.locator('[data-stage-action]').first();
+		await actionable.waitFor({ state: 'visible', timeout: TIMEOUT });
+		assert.equal(
+			await actionable.isDisabled(),
+			false,
+			'reconnected current seat should be able to act',
+		);
+	}
+	findings.push(
+		finding(
+			`recover-${phase}`,
+			true,
+			'offers, selected pair, and variant retained; no automatic gameplay command',
+		),
+	);
+	process.stdout.write(`[Laboratory Browser] PASS ${phase}\n`);
+}
+
 /**
  * Runs the built-lab browser acceptance journey. `restart` must restart only the isolated lab API
  * and resolve after its health check succeeds. Findings intentionally contain no game ids,
@@ -229,8 +427,7 @@ export async function runBrowserAcceptance({
 	const commandCounts = new WeakMap();
 	const pageErrorCounts = new WeakMap();
 	const monitoredPages = new WeakSet();
-	let holdSecondRoll = false;
-	let heldSecondRolls = 0;
+	const interception = { holdSecondRoll: false, heldSecondRolls: 0 };
 	const auditPage = async (page) => {
 		if (monitoredPages.has(page)) return;
 		monitoredPages.add(page);
@@ -241,9 +438,7 @@ export async function runBrowserAcceptance({
 				const url = new URL(request.url());
 				assert.ok(origins.has(url.origin), 'unexpected external network request');
 				assert.equal(
-					/^\/(?:lobby|auth|ingest|ratings?|training|profile)(?:\/|$)|^\/api\/(?:games|ratings?|training|profile)(?:\/|$)/.test(
-						url.pathname,
-					),
+					isOrdinaryApiPath(url.pathname),
 					false,
 					'laboratory should not call ordinary API, lobby, auth, or ingest routes',
 				);
@@ -253,10 +448,7 @@ export async function runBrowserAcceptance({
 		});
 		await page.route('**/*', async (route) => {
 			const url = new URL(route.request().url());
-			const ordinaryApi =
-				/^\/(?:lobby|auth|ingest|ratings?|training|profile)(?:\/|$)|^\/api\/(?:games|ratings?|training|profile)(?:\/|$)/.test(
-					url.pathname,
-				);
+			const ordinaryApi = isOrdinaryApiPath(url.pathname);
 			if (!origins.has(url.origin) || ordinaryApi) {
 				page.__labExternalRequest = true;
 				await route.abort();
@@ -295,10 +487,10 @@ export async function runBrowserAcceptance({
 				}
 				// Interrupt the one-click sequence only for the persisted first-pair checkpoint.
 				// All other frames reach the real server unchanged; no capability is recorded.
-				if (holdSecondRoll && raw) {
+				if (interception.holdSecondRoll && raw) {
 					const frame = JSON.parse(raw);
 					if (frame?.LabCommand?.action?.RollSecond) {
-						heldSecondRolls += 1;
+						interception.heldSecondRolls += 1;
 						return;
 					}
 				}
@@ -349,7 +541,7 @@ export async function runBrowserAcceptance({
 			.first()
 			.textContent();
 		assert.match(invitationEvidence ?? '', /10\s*\+\s*10/);
-		const inviteGameId = invite.pathname.match(/^\/invite\/([0-9a-f-]{36})$/i)?.[1];
+		const inviteGameId = /^\/invite\/([0-9a-f-]{36})$/i.exec(invite.pathname)?.[1];
 		assert.ok(inviteGameId, 'invitation UI should expose a valid room route');
 		await hostPage.reload({ waitUntil: 'networkidle', timeout: TIMEOUT });
 		await hostPage.locator('#lab-invitation').waitFor({ state: 'visible', timeout: TIMEOUT });
@@ -368,28 +560,20 @@ export async function runBrowserAcceptance({
 		);
 		assert.ok(sameTurn(publicState(waitingBefore), publicState(waitingAfter)));
 		if (waitingRestart?.savedClocks && waitingAfter.clocks) {
-			for (const color of ['white', 'black']) {
-				const saved = clockValue(waitingRestart.savedClocks, color);
-				const restored = clockValue(waitingAfter.clocks, color);
-				if (saved !== null && restored !== null)
-					assert.ok(
-						Math.abs(restored - saved) <= 500,
-						'waiting-room clocks should remain stopped across restart',
-					);
-			}
+			checkStoppedClocks(
+				waitingRestart.savedClocks,
+				waitingAfter.clocks,
+				'waiting-room clocks should remain stopped across restart',
+			);
 		}
 		if (waitingAfter.clocks) {
 			await new Promise((resolve) => setTimeout(resolve, 1100));
 			const waitingLater = await publicSnapshot(hostPage.request, apiOrigin, inviteGameId);
-			for (const color of ['white', 'black']) {
-				const beforeClock = clockValue(waitingAfter.clocks, color);
-				const laterClock = clockValue(waitingLater.clocks, color);
-				if (beforeClock !== null && laterClock !== null)
-					assert.ok(
-						Math.abs(laterClock - beforeClock) <= 500,
-						'AwaitingPlayers clocks should stay stopped',
-					);
-			}
+			checkStoppedClocks(
+				waitingAfter.clocks,
+				waitingLater.clocks,
+				'AwaitingPlayers clocks should stay stopped',
+			);
 		}
 		findings.push(
 			finding(
@@ -407,7 +591,7 @@ export async function runBrowserAcceptance({
 		assert.match(await hostPage.getByRole('grid').getAttribute('aria-label'), /white board/i);
 		assert.match(await friendPage.getByRole('grid').getAttribute('aria-label'), /black board/i);
 		const boardUrl = new URL(hostPage.url());
-		const pathMatch = boardUrl.pathname.match(/^\/game\/([0-9a-f-]{36})$/i);
+		const pathMatch = /^\/game\/([0-9a-f-]{36})$/i.exec(boardUrl.pathname);
 		assert.ok(pathMatch, 'host board route should contain a valid game identifier');
 		gameId = pathMatch[1];
 		const ready = await waitForState(
@@ -438,7 +622,8 @@ export async function runBrowserAcceptance({
 			),
 		);
 
-		findings.push(await checkLayout(hostPage, outputDir, 'desktop', 1440, 900));
+		const desktopLayout = await checkLayout(hostPage, outputDir, 'desktop', 1440, 900);
+		findings.push(desktopLayout);
 		for (const [width, height] of [
 			[320, 740],
 			[390, 844],
@@ -473,160 +658,21 @@ export async function runBrowserAcceptance({
 
 		// Move to each checkpoint through the actual UI. If both initial offers are unplayable, the
 		// server passes that turn; continue through the friend's turns until a playable pair appears.
-		const checkpoints = [];
 		for (const phase of PHASES) {
-			holdSecondRoll = phase === 'AwaitingSecondRoll';
-			const heldBefore = heldSecondRolls;
-			let currentPhase = (await publicSnapshot(hostPage.request, apiOrigin, gameId)).lab.turn.phase;
-			const phaseOrder = PHASES;
-			let advances = 0;
-			while (phaseOrder.indexOf(currentPhase) < phaseOrder.indexOf(phase)) {
-				assert.ok(advances++ < 20, 'could not reach a playable pair after repeated server rolls');
-				const turnState = await publicSnapshot(hostPage.request, apiOrigin, gameId);
-				const activePage = turnState.activeSeat === 'White' ? hostPage : friendPage;
-				await stageAction(activePage, currentPhase);
-				const nextState = await waitForState(
-					activePage.request,
-					apiOrigin,
-					gameId,
-					(state) => state?.version > turnState.version && state?.lab?.turn?.phase !== currentPhase,
-				);
-				currentPhase = nextState.lab.turn.phase;
-			}
-			const before = await waitForState(
-				hostPage.request,
+			await recoverPhase({
+				phase,
+				hostPage,
+				friendPage,
+				hostContext,
+				friendContext,
 				apiOrigin,
 				gameId,
-				(state) => state?.lab?.turn?.phase === phase,
-			);
-			const beforeSafe = publicState(before);
-			const activePage = before.activeSeat === 'White' ? hostPage : friendPage;
-			if (holdSecondRoll) {
-				const deadline = Date.now() + TIMEOUT;
-				while (heldSecondRolls === heldBefore && Date.now() < deadline)
-					await new Promise((resolve) => setTimeout(resolve, 50));
-				assert.equal(
-					heldSecondRolls,
-					heldBefore + 1,
-					'one second-roll command should be interrupted',
-				);
-				assert.equal(
-					await activePage.locator('.lab-pair-card').count(),
-					0,
-					'partial offers should remain hidden while the second roll is interrupted',
-				);
-			}
-			const commandCount = commandCounts.get(activePage) ?? 0;
-			await hostContext.setOffline(true);
-			await friendContext.setOffline(true);
-			await disconnect();
-			await activePage.locator('.lab-game-notice[role="status"]').waitFor({
-				state: 'visible',
-				timeout: TIMEOUT,
+				restart,
+				disconnect,
+				interception,
+				commandCounts,
+				findings,
 			});
-			if (phase === 'PlayingSelectedPair') {
-				assert.equal(
-					await activePage.getByRole('gridcell').first().getAttribute('aria-disabled'),
-					'true',
-				);
-				assert.equal(await activePage.getByRole('button', { name: /^submit turn$/i }).count(), 0);
-				assert.equal(await activePage.getByRole('button', { name: /^undo$/i }).count(), 0);
-			} else if (phase === 'AwaitingPairChoice') {
-				const actionable = activePage.locator('.lab-pair-card').first();
-				assert.equal(
-					await actionable.isDisabled(),
-					true,
-					'pair selection should disable while offline',
-				);
-			} else {
-				const actionable = activePage.locator('[data-stage-action]').first();
-				assert.equal(
-					await actionable.isDisabled(),
-					true,
-					'gameplay action should disable while offline',
-				);
-			}
-			const restartResult = await restart(gameId);
-			holdSecondRoll = false;
-			assert.ok(
-				restartResult?.restoredClocks && Number.isFinite(restartResult.sampledAt),
-				'restart hook should return the restored clock baseline and sample time',
-			);
-			await hostContext.setOffline(false);
-			await friendContext.setOffline(false);
-			await hostPage.reload({ waitUntil: 'networkidle', timeout: TIMEOUT });
-			await friendPage.reload({ waitUntil: 'networkidle', timeout: TIMEOUT });
-			const recovered = await waitForState(
-				hostPage.request,
-				apiOrigin,
-				gameId,
-				(state) => state?.lab?.turn?.phase === phase,
-			);
-			const afterSafe = publicState(recovered);
-			assert.ok(recovered.clocks, 'timed recovery should expose both public clocks');
-			const elapsedSinceRestore = Math.max(0, performance.now() - restartResult.sampledAt);
-			for (const color of ['white', 'black']) {
-				const restoredAtRestart = clockValue(restartResult.restoredClocks, color);
-				const observed = clockValue(recovered.clocks, color);
-				assert.ok(
-					restoredAtRestart !== null && observed !== null,
-					'clock samples should contain both seats',
-				);
-				const activeColor = String(restartResult.activeSeat).toLowerCase() === color;
-				const expected = Math.max(0, restoredAtRestart - (activeColor ? elapsedSinceRestore : 0));
-				assert.ok(
-					Math.abs(observed - expected) <= 500,
-					`recovered ${color} clock should continue from restart baseline within 500ms`,
-				);
-			}
-			assert.ok(
-				sameTurn(beforeSafe, afterSafe),
-				`public turn should be unchanged after offline/restart at ${phase}`,
-			);
-			await hostPage.getByRole('grid').waitFor({ state: 'visible', timeout: TIMEOUT });
-			await activePage.waitForFunction(
-				(isMovePhase) =>
-					isMovePhase
-						? document.activeElement?.getAttribute('role') === 'gridcell'
-						: document.activeElement?.matches('[data-stage-action]:not(:disabled)') === true,
-				phase === 'PlayingSelectedPair',
-				{ timeout: TIMEOUT },
-			);
-			const beforeTabCount = commandCounts.get(activePage) ?? 0;
-			await activePage.keyboard.press('Tab');
-			assert.equal(
-				await activePage.evaluate(() => document.activeElement === document.body),
-				false,
-				'Tab should move focus to an interactive control',
-			);
-			assert.equal(
-				commandCounts.get(activePage) ?? 0,
-				beforeTabCount,
-				'Tab should not submit a game command',
-			);
-			assert.equal(
-				commandCounts.get(activePage) ?? 0,
-				commandCount,
-				'recovery should not send an automatic gameplay command',
-			);
-			if (phase !== 'PlayingSelectedPair') {
-				const actionable = activePage.locator('[data-stage-action]').first();
-				await actionable.waitFor({ state: 'visible', timeout: TIMEOUT });
-				assert.equal(
-					await actionable.isDisabled(),
-					false,
-					'reconnected current seat should be able to act',
-				);
-			}
-			checkpoints.push({ phase, state: afterSafe });
-			findings.push(
-				finding(
-					`recover-${phase}`,
-					true,
-					'offers, selected pair, and variant retained; no automatic gameplay command',
-				),
-			);
-			process.stdout.write(`[Laboratory Browser] PASS ${phase}\n`);
 		}
 
 		const selectedState = await publicSnapshot(hostPage.request, apiOrigin, gameId);
@@ -768,9 +814,9 @@ export async function runBrowserAcceptance({
 		});
 		await hostPage.getByRole('grid').waitFor({ state: 'visible', timeout: TIMEOUT });
 		await friendPage.getByRole('grid').waitFor({ state: 'visible', timeout: TIMEOUT });
-		const hostRematchId = new URL(hostPage.url()).pathname.match(/^\/game\/([0-9a-f-]{36})$/i)?.[1];
-		const friendRematchId = new URL(friendPage.url()).pathname.match(
-			/^\/game\/([0-9a-f-]{36})$/i,
+		const hostRematchId = /^\/game\/([0-9a-f-]{36})$/i.exec(new URL(hostPage.url()).pathname)?.[1];
+		const friendRematchId = /^\/game\/([0-9a-f-]{36})$/i.exec(
+			new URL(friendPage.url()).pathname,
 		)?.[1];
 		assert.ok(
 			hostRematchId && hostRematchId === friendRematchId && hostRematchId !== gameId,

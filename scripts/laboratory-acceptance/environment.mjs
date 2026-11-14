@@ -135,7 +135,8 @@ export class AcceptanceEnvironment {
 			return false;
 		}
 	}
-	async start(mode = 'laboratory', options) {
+	async start(mode, options) {
+		if (mode === undefined) mode = 'laboratory';
 		this.assertRunning();
 		const { join = 300, admission = true } = options ?? {};
 		const args = [
@@ -195,17 +196,21 @@ export class AcceptanceEnvironment {
 			endpoint.startsWith('unix://'),
 			'Acceptance requires a local Unix-socket Docker context',
 		);
-		for (const port of [4175, 8081, 8082, 18081, 18082, 25433]) {
-			const busy = await new Promise((r) => {
-				const socket = net.connect(port, '127.0.0.1');
-				socket.once('connect', () => {
-					socket.destroy();
-					r(true);
+		const portChecks = await Promise.all(
+			[4175, 8081, 8082, 18081, 18082, 25433].map(async (port) => {
+				const busy = await new Promise((r) => {
+					const socket = net.connect(port, '127.0.0.1');
+					socket.once('connect', () => {
+						socket.destroy();
+						r(true);
+					});
+					socket.once('error', () => r(false));
 				});
-				socket.once('error', () => r(false));
-			});
+				return { port, busy };
+			}),
+		);
+		for (const { port, busy } of portChecks)
 			assert.equal(busy, false, `Port ${port} is occupied; refusing to reuse an existing service.`);
-		}
 		this.state = (await this.linux('mktemp', ['-d', '/tmp/dicechess-lab225.XXXXXX'])).stdout.trim();
 		this.script = this.wsl
 			? (
@@ -309,14 +314,15 @@ REVOKE CONNECT ON DATABASE lab225_lab FROM PUBLIC; GRANT CONNECT ON DATABASE lab
 		for (const socket of this.labSockets) socket.destroy();
 	}
 	async cleanup() {
-		return (this.cleanupPromise ??= this.cleanupOwnedResources());
+		if (this.cleanupPromise === undefined || this.cleanupPromise === null)
+			this.cleanupPromise = this.cleanupOwnedResources();
+		return this.cleanupPromise;
 	}
 	async cleanupOwnedResources() {
 		this.cleaning = true;
 		for (const child of this.children) child.kill();
 		if (this.state && this.script)
-			for (const mode of ['laboratory', 'classic'])
-				await this.process('stop', mode).catch(() => {});
+			await Promise.allSettled(['laboratory', 'classic'].map((mode) => this.process('stop', mode)));
 		for (const socket of this.proxySockets) socket.destroy();
 		await Promise.all(
 			this.bridges.map((bridge) => new Promise((resolvePromise) => bridge.close(resolvePromise))),

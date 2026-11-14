@@ -12,14 +12,15 @@ export async function readJson(path, origin = API_ORIGIN, init = {}) {
 	assert.ok(response.ok, `Local acceptance HTTP request failed (${response.status})`);
 	return response.json();
 }
-export async function createRoom(timeControl = { Unlimited: {} }, origin = API_ORIGIN) {
+export async function createRoom(timeControl, origin = API_ORIGIN) {
+	const selectedTimeControl = timeControl === undefined ? { Unlimited: {} } : timeControl;
 	return readJson('/games', origin, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
 			white: randomUUID(),
 			black: randomUUID(),
-			timeControl,
+			timeControl: selectedTimeControl,
 			...(origin === API_ORIGIN
 				? { variant: { id: 'choice-2x2d6', revision: 1 }, labProtocolVersion: 1, rated: false }
 				: {}),

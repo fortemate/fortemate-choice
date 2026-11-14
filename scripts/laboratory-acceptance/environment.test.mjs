@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
-import { captureChildOutput } from './environment.mjs';
+import { AcceptanceEnvironment, captureChildOutput } from './environment.mjs';
 
 test('database output resolves only after close and preserves final UTF-8 chunks', async () => {
 	const child = new EventEmitter();
@@ -29,4 +29,32 @@ test('database output resolves only after close and preserves final UTF-8 chunks
 	]);
 	child.emit('close', 0);
 	assert.deepEqual(await completion, { stdout: '{"value":"é"}', stderr: 'last diagnostic' });
+});
+
+test('cleanup stops independent API processes concurrently and tolerates stop errors', async () => {
+	const environment = Object.create(AcceptanceEnvironment.prototype);
+	Object.assign(environment, {
+		children: [],
+		state: '/tmp/laboratory-acceptance-test',
+		script: '/tmp/process.sh',
+		bridges: [],
+		proxySockets: new Set(),
+		owned: false,
+		cleaning: false,
+	});
+	let activeStops = 0;
+	let maximumConcurrentStops = 0;
+	const stoppedModes = [];
+	environment.process = async (_action, mode) => {
+		stoppedModes.push(mode);
+		activeStops++;
+		maximumConcurrentStops = Math.max(maximumConcurrentStops, activeStops);
+		await new Promise((resolve) => setImmediate(resolve));
+		activeStops--;
+		if (mode === 'laboratory') throw new Error('already stopped');
+	};
+
+	await Promise.all([environment.cleanup(), environment.cleanup()]);
+	assert.equal(maximumConcurrentStops, 2);
+	assert.deepEqual(stoppedModes, ['laboratory', 'classic']);
 });

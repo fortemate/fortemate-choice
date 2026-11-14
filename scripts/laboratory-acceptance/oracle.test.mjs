@@ -241,6 +241,145 @@ test('incomplete transcripts never receive a fairness pass without a terminal re
 	});
 });
 
+test('replay failures retain their first reason and report no completed verification', () => {
+	const transcript = JSON.parse(
+		readFileSync(new URL('./evidence/maximum-consumption.json', import.meta.url), 'utf8'),
+	);
+	const cases = [
+		['missing turn', (bad) => (bad.turns[0] = null), 'order does not match the initial position'],
+		[
+			'wrong order',
+			(bad) => (bad.turns[0].turnNumber = 1),
+			'order does not match the initial position',
+		],
+		[
+			'wrong color',
+			(bad) => (bad.turns[0].activeColor = 'b'),
+			'order does not match the initial position',
+		],
+		['invalid die', (bad) => (bad.turns[0].offers[1][0] = 0), 'has invalid pair data'],
+		[
+			'invalid selection',
+			(bad) => (bad.turns[0].selectedPairIndex = null),
+			'has invalid pair data',
+		],
+		[
+			'wrong selected dice',
+			(bad) => (bad.turns[0].dice = [6, 6]),
+			'selected dice do not match its offer',
+		],
+		['missing moves', (bad) => delete bad.turns[0].moves, 'has invalid moves'],
+		['excess moves', (bad) => bad.turns[0].moves.push('a1a2'), 'has invalid moves'],
+		['illegal pass', (bad) => (bad.turns[0].moves = []), 'passed despite available legal paths'],
+		['invalid UCI', (bad) => (bad.turns[0].moves[0] = 'e2-e3'), 'has invalid UCI'],
+		['illegal path', (bad) => (bad.turns[0].moves[0] = 'e2e5'), 'is not a legal turn path'],
+		[
+			'incomplete path',
+			(bad) => bad.turns[0].moves.pop(),
+			'ended before exhausting its legal path',
+		],
+		['wrong FEN', (bad) => (bad.turns[0].fenAfter = bad.initialDfen), 'FEN replay mismatch'],
+	];
+	for (const [label, mutate, reason] of cases) {
+		const bad = structuredClone(transcript);
+		// A later fairness failure must not mask the earlier replay rejection.
+		bad.turns[0].offers[1] = [6, 6];
+		mutate(bad);
+		assert.deepEqual(
+			verifyTranscript(bad),
+			{
+				status: 'failed',
+				verifiedTurns: 0,
+				reason: `turn 0 ${reason}`,
+			},
+			label,
+		);
+	}
+	const badSecondTurn = structuredClone(transcript);
+	badSecondTurn.turns.push(structuredClone(badSecondTurn.turns[0]));
+	assert.deepEqual(verifyTranscript(badSecondTurn), {
+		status: 'failed',
+		verifiedTurns: 0,
+		reason: 'turn 1 order does not match the initial position',
+	});
+});
+
+test('fairness and terminal failures preserve verification counts and validation order', () => {
+	const transcript = JSON.parse(
+		readFileSync(new URL('./evidence/maximum-consumption.json', import.meta.url), 'utf8'),
+	);
+	const cases = [
+		[
+			(bad) => {
+				bad.provenance.rulesVersion = 'unsupported';
+				bad.fairness.serverSeed = null;
+			},
+			'unsupported transcript provenance',
+			0,
+		],
+		[
+			(bad) => {
+				bad.status.Ended.over.result = { Draw: {} };
+				bad.turns = null;
+			},
+			'terminal win result mismatch',
+			0,
+		],
+		[(bad) => (bad.fairness.serverSeed = null), 'invalid server seed', 0],
+		[(bad) => (bad.fairness.commit = 'invalid'), 'invalid commitment', 0],
+		[(bad) => (bad.fairness.commit = '0'.repeat(64)), 'commitment mismatch', 0],
+		[(bad) => (bad.fairness.clientSeeds.white = ''), 'client seeds unavailable', 0],
+		[(bad) => (bad.turns[0].offers[1] = [6, 6]), 'turn 0 offer mismatch', 1],
+		[(bad) => delete bad.currentTurn.offers, 'invalid terminal offers', 1],
+		[(bad) => (bad.currentTurn.selectedPairIndex = 0), 'invalid terminal offers', 1],
+		[(bad) => (bad.currentTurn.offers = [[6, 6]]), 'terminal offer mismatch', 1],
+	];
+	for (const [mutate, reason, verifiedTurns] of cases) {
+		const bad = structuredClone(transcript);
+		mutate(bad);
+		assert.deepEqual(verifyTranscript(bad), { status: 'failed', verifiedTurns, reason });
+	}
+});
+
+test('king capture failures preserve replay, result, and selection boundaries', () => {
+	const transcript = JSON.parse(
+		readFileSync(new URL('./evidence/king-capture.json', import.meta.url), 'utf8'),
+	);
+	const cases = [
+		[
+			(bad) => bad.turns.push(structuredClone(bad.turns[0])),
+			'turn 0 continued after king capture',
+			0,
+		],
+		[
+			(bad) => (bad.status.Ended.over.termination = 'Resign'),
+			'terminal king capture reason mismatch',
+			1,
+		],
+		[
+			(bad) => (bad.status.Ended.over.result.Win.side = 'Black'),
+			'terminal king capture result mismatch',
+			1,
+		],
+		[(bad) => (bad.currentTurn.offers = []), 'invalid terminal offers', 1],
+		[
+			(bad) => (bad.currentTurn.selectedPairIndex = null),
+			'terminal king capture selection mismatch',
+			1,
+		],
+		[
+			(bad) => (bad.currentTurn.selectedPairIndex = 1),
+			'terminal king capture selection mismatch',
+			1,
+		],
+	];
+	for (const [mutate, reason, verifiedTurns] of cases) {
+		const bad = structuredClone(transcript);
+		mutate(bad);
+		assert.deepEqual(verifyTranscript(bad), { status: 'failed', verifiedTurns, reason });
+	}
+});
+
 test('king capture records the applied path without toggling the active color', () => {
 	const vector = fixture.vectors.find(
 		(candidate) => candidate.name === 'ascending-alice-bob-turn-0',

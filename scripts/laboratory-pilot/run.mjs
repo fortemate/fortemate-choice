@@ -27,6 +27,13 @@ const pass = (scenario) => {
 	findings.push({ scenario, status: 'PASS' });
 	process.stdout.write(`PASS ${scenario}\n`);
 };
+// Settle every local request before a failure can trigger Compose cleanup.
+async function settleOperations(operations) {
+	const results = await Promise.allSettled(operations);
+	const failure = results.find((result) => result.status === 'rejected');
+	if (failure) throw failure.reason;
+	return results.map((result) => result.value);
+}
 const gameRequest = () => ({
 	white: randomUUID(),
 	black: randomUUID(),
@@ -142,16 +149,19 @@ try {
 	const health = (await env.request('/health')).json();
 	assert.equal(health.rulesVersion, '0.18.2');
 	await assert.rejects(() => env.request('/health', { trusted: false }), /TLS request failed/);
-	for (const route of [
+	const deepLinks = [
 		'/',
 		'/invite/00000000-0000-0000-0000-000000000000',
 		'/game/00000000-0000-0000-0000-000000000000',
-	]) {
-		const response = await env.request(route, { origin: APP_ORIGIN });
-		assert.equal(response.status, 200);
-		assert.equal(response.headers['referrer-policy'], 'no-referrer');
-		assert.match(response.headers['x-robots-tag'], /noindex/);
-	}
+	];
+	await settleOperations(
+		deepLinks.map(async (route) => {
+			const response = await env.request(route, { origin: APP_ORIGIN });
+			assert.equal(response.status, 200);
+			assert.equal(response.headers['referrer-policy'], 'no-referrer');
+			assert.match(response.headers['x-robots-tag'], /noindex/);
+		}),
+	);
 	assert.equal((await env.request('/assets/missing-file.js', { origin: APP_ORIGIN })).status, 404);
 	pass('tls-trust-origin-deep-links-and-security-headers');
 	const closed = await env.request('/games', {
@@ -168,15 +178,19 @@ try {
 	});
 	assert.equal(denied.headers['access-control-allow-origin'], undefined);
 	assert.equal(denied.status, 403);
-	for (const route of [
+	const disabledRoutes = [
 		'/lobby/seeks',
 		'/leaderboard',
 		'/bots',
 		'/ingest/games',
 		'/training',
 		'/me',
-	])
-		assert.equal((await env.request(route)).status, 404);
+	];
+	await settleOperations(
+		disabledRoutes.map(async (route) => {
+			assert.equal((await env.request(route)).status, 404);
+		}),
+	);
 	assert.equal(
 		await env.sql(
 			"SELECT has_database_privilege('laboratory_app','postgres','CONNECT')",
@@ -190,20 +204,25 @@ try {
 		(await env.docker(['inspect', ...(await env.compose(['ps', '-q'])).stdout.trim().split(/\s+/)]))
 			.stdout,
 	);
+	const networks = new Set();
 	for (const container of containers) {
 		assert.equal(container.HostConfig.ReadonlyRootfs, true);
 		assert.ok(['10001:10001', '70:70'].includes(container.Config.User));
 		assert.ok(container.HostConfig.SecurityOpt.includes('no-new-privileges:true'));
 		for (const binding of Object.values(container.HostConfig.PortBindings ?? {}).flat())
 			assert.equal(binding.HostIp, '127.0.0.1');
-		for (const network of Object.keys(container.NetworkSettings.Networks))
+		for (const network of Object.keys(container.NetworkSettings.Networks)) networks.add(network);
+	}
+	await settleOperations(
+		[...networks].map(async (network) => {
 			assert.equal(
 				(
 					await env.docker(['network', 'inspect', network, '--format', '{{.Internal}}'])
 				).stdout.trim(),
 				network.endsWith('_ingress') ? 'false' : 'true',
 			);
-	}
+		}),
+	);
 	pass('runtime-nonroot-readonly-internal-networks');
 	browser = await chromium.launch({ headless: true });
 	const incompleteRoom = await incompleteFixture();

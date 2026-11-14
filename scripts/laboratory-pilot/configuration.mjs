@@ -31,7 +31,7 @@ export function validateRehearsal(config, project) {
 		assert.equal(service.build, undefined);
 		assert.ok(
 			!Object.keys(service.environment ?? {}).some(
-				(key) => /TOKEN|SECRET/.test(key) || /PASSWORD$/.test(key),
+				(key) => /TOKEN|SECRET/.test(key) || key.endsWith('PASSWORD'),
 			),
 		);
 		if (name !== 'gateway')

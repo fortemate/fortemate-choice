@@ -42,6 +42,13 @@ const report = (scenario, details = {}) => {
 	evidence.push({ scenario, status: 'PASS', ...details });
 	process.stdout.write(`PASS ${scenario}\n`);
 };
+// A failed operation must not trigger environment cleanup while its siblings are still running.
+async function settleOperations(operations) {
+	const results = await Promise.allSettled(operations);
+	const failure = results.find((result) => result.status === 'rejected');
+	if (failure) throw failure.reason;
+	return results.map((result) => result.value);
+}
 const jsonLiteral = (value) => `'${JSON.stringify(value).replaceAll("'", "''")}'::jsonb`;
 const snapshot = async (id) =>
 	JSON.parse(
@@ -148,19 +155,23 @@ async function mainDatabaseFingerprint() {
 	)
 		.split('\n')
 		.filter(Boolean);
-	const counts = {};
-	for (const table of tables) {
-		assert.match(table, /^[a-z_]+$/);
-		const rows = await env.sql(
-			'lab225_classic',
-			`SELECT COALESCE(jsonb_agg(to_jsonb(entry) ORDER BY to_jsonb(entry)::text), '[]'::jsonb) FROM play.${table} entry`,
-		);
-		counts[table] = {
-			rows: JSON.parse(rows).length,
-			sha256: createHash('sha256').update(rows).digest('hex'),
-		};
-	}
-	return counts;
+	const counts = await settleOperations(
+		tables.map(async (table) => {
+			assert.match(table, /^[a-z_]+$/);
+			const rows = await env.sql(
+				'lab225_classic',
+				`SELECT COALESCE(jsonb_agg(to_jsonb(entry) ORDER BY to_jsonb(entry)::text), '[]'::jsonb) FROM play.${table} entry`,
+			);
+			return [
+				table,
+				{
+					rows: JSON.parse(rows).length,
+					sha256: createHash('sha256').update(rows).digest('hex'),
+				},
+			];
+		}),
+	);
+	return Object.fromEntries(counts);
 }
 async function prepareFixtures() {
 	const cases = [];
@@ -181,18 +192,20 @@ async function prepareFixtures() {
 		cases.push({ fixture, creation, seeds });
 	}
 	await env.process('stop');
-	for (const { fixture, creation } of cases) {
-		const changed = await env.sql(
-			'lab225_lab',
-			`UPDATE laboratory.games SET snapshot=jsonb_set(jsonb_set(snapshot,'{dfen}',${jsonLiteral(fixture.dfen)}),'{lab,initialDfen}',${jsonLiteral(fixture.dfen)})
+	await settleOperations(
+		cases.map(async ({ fixture, creation }) => {
+			const changed = await env.sql(
+				'lab225_lab',
+				`UPDATE laboratory.games SET snapshot=jsonb_set(jsonb_set(snapshot,'{dfen}',${jsonLiteral(fixture.dfen)}),'{lab,initialDfen}',${jsonLiteral(fixture.dfen)})
 WHERE game_id='${creation.gameId}'::uuid AND version=0 AND status='active' AND snapshot->>'started'='false'
 AND snapshot->'lab'->'turn'->>'phase'='AwaitingPlayers' AND snapshot->'lab'->'turn'->'generatedOffers'='[]'::jsonb RETURNING game_id;`,
-		);
-		assert.ok(
-			changed.startsWith(creation.gameId),
-			'Offline fixture update must change exactly its own pre-start row',
-		);
-	}
+			);
+			assert.ok(
+				changed.startsWith(creation.gameId),
+				'Offline fixture update must change exactly its own pre-start row',
+			);
+		}),
+	);
 	await env.start();
 	return cases;
 }
@@ -265,9 +278,9 @@ async function runFixture({ fixture, creation, seeds }) {
 	assert.equal(record.turns[0].selectedPairIndex, fixture.selected);
 	assert.deepEqual(record.turns[0].moves, fixture.moves);
 	assert.deepEqual(record.turns[0].offers, choice.lab.turn.offers);
-	report(fixture.name, { verifiedTurns: verification.verifiedTurns });
 	room.white.close();
 	room.black.close();
+	return { scenario: fixture.name, details: { verifiedTurns: verification.verifiedTurns } };
 }
 async function protocolRejections() {
 	const creation = await createRoom();
@@ -407,17 +420,20 @@ async function isolation(baseline) {
 	const labIds = (await env.sql('lab225_lab', 'SELECT game_id FROM laboratory.games')).split('\n');
 	for (const id of labIds)
 		assert.ok(!JSON.stringify(games).includes(id), 'Laboratory game leaked into classic listing');
-	for (const path of [
+	const disabledRoutes = [
 		'/lobby/seeks',
 		'/leaderboard',
 		'/me',
 		'/bots',
 		'/ingest/games',
 		'/training',
-	]) {
-		const response = await fetch(`${API_ORIGIN}${path}`);
-		assert.equal(response.status, 404);
-	}
+	];
+	await settleOperations(
+		disabledRoutes.map(async (path) => {
+			const response = await fetch(`${API_ORIGIN}${path}`);
+			assert.equal(response.status, 404);
+		}),
+	);
 	report('separate-databases-roles-routes-and-ordinary-tables', {
 		ordinaryTables: Object.keys(baseline).length,
 	});
@@ -448,7 +464,12 @@ try {
 	await new Promise((r) => setTimeout(r, 200));
 	const baseline = await mainDatabaseFingerprint();
 	const cases = await prepareFixtures();
-	for (const fixture of cases) await runFixture(fixture);
+	const fixtureResults = await Promise.allSettled(cases.map((fixture) => runFixture(fixture)));
+	// Keep report order stable, and settle all room activity before a failure triggers cleanup.
+	for (const result of fixtureResults) {
+		if (result.status === 'rejected') throw result.reason;
+		report(result.value.scenario, result.value.details);
+	}
 	await protocolRejections();
 	const incompleteRoom = await timingAndRetention();
 	browser = await chromium.launch({ headless: true });
@@ -526,13 +547,15 @@ try {
 		JSON.stringify({ schemaVersion: 1, status: 'PASS', versions, scenarios: evidence }, null, 2) +
 			'\n',
 	);
-	const digests = [];
-	for (const name of (await readdir(output)).sort((left, right) =>
+	const names = (await readdir(output)).sort((left, right) =>
 		Buffer.compare(Buffer.from(left), Buffer.from(right)),
-	)) {
-		const bytes = await readFile(resolve(output, name));
-		digests.push(`${createHash('sha256').update(bytes).digest('hex')}  ${name}`);
-	}
+	);
+	const digests = await settleOperations(
+		names.map(async (name) => {
+			const bytes = await readFile(resolve(output, name));
+			return `${createHash('sha256').update(bytes).digest('hex')}  ${name}`;
+		}),
+	);
 	await writeFile(resolve(output, 'SHA256SUMS'), digests.join('\n') + '\n');
 	qualification.throwIfStopped();
 	process.stdout.write(`Laboratory acceptance passed (${evidence.length} scenarios).\n`);

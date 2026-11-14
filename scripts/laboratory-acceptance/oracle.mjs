@@ -10,7 +10,7 @@ export const LAB_DICE_ALGORITHM = 'choice-2x2d6-hmac-sha256-v1';
 const CLASSIC_DICE_COUNT = 3;
 const OFFER_COUNT = 2;
 const CUTOFF = 252;
-const UINT32_MAX = 0xffff_ffff;
+const UINT32_MAX = 0xff_ff_ff_ff;
 const SAFE_INTEGER_MAX = Number.MAX_SAFE_INTEGER;
 const DIE_LETTERS = 'PNBRQK';
 
@@ -139,72 +139,72 @@ function capturedKingWinner(position) {
 	return whiteKing ? 'White' : 'Black';
 }
 
+function validateRecordedTurn(turn, index, color) {
+	if (turn?.turnNumber !== index || turn.activeColor !== color)
+		throw new Error(`turn ${index} order does not match the initial position`);
+	if (
+		!Array.isArray(turn.offers) ||
+		turn.offers.length !== 2 ||
+		!turn.offers.every(isPair) ||
+		(turn.selectedPairIndex !== 0 && turn.selectedPairIndex !== 1) ||
+		!isPair(turn.dice)
+	)
+		throw new Error(`turn ${index} has invalid pair data`);
+	const selected = turn.offers[turn.selectedPairIndex];
+	if (!samePair(selected, turn.dice))
+		throw new Error(`turn ${index} selected dice do not match its offer`);
+	if (!Array.isArray(turn.moves) || turn.moves.length > 2)
+		throw new Error(`turn ${index} has invalid moves`);
+}
+
+function replayMoves(turn, index, rolledDfen) {
+	let legalNode = DiceChess.getLegalTurnTree(rolledDfen);
+	if (turn.moves.length === 0 && Object.keys(legalNode).length !== 0)
+		throw new Error(`turn ${index} passed despite available legal paths`);
+	let dfen = rolledDfen;
+	for (const move of turn.moves) {
+		if (typeof move !== 'string' || !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move))
+			throw new Error(`turn ${index} has invalid UCI`);
+		if (!Object.hasOwn(legalNode, move)) throw new Error(`turn ${index} is not a legal turn path`);
+		legalNode = legalNode[move];
+		const applied = DiceChess.applyMove(dfen, move.slice(0, 2), move.slice(2, 4), move[4]);
+		if (typeof applied !== 'string') throw new Error(`turn ${index} contains an illegal move`);
+		dfen = applied;
+	}
+	if (turn.moves.length > 0 && Object.keys(legalNode).length !== 0)
+		throw new Error(`turn ${index} ended before exhausting its legal path`);
+	return dfen;
+}
+
+function finishRecordedTurn(turn, index, turnCount, dfen) {
+	const winner = capturedKingWinner(boardFields(dfen));
+	if (winner !== null && index !== turnCount - 1)
+		throw new Error(`turn ${index} continued after king capture`);
+	const ended = winner === null ? DiceChess.endTurn(dfen) : dfen;
+	if (typeof ended !== 'string') throw new Error(`turn ${index} could not end`);
+	const after = boardFields(ended);
+	const expectedAfter = boardFields(turn.fenAfter);
+	if (after.join(' ') !== expectedAfter.join(' '))
+		throw new Error(`turn ${index} FEN replay mismatch`);
+	return after;
+}
+
 function replayTurns(transcript) {
 	let position = boardFields(transcript.initialDfen);
 	let color = position[1];
 	let verifiedTurns = 0;
 	for (let index = 0; index < transcript.turns.length; index += 1) {
 		const turn = transcript.turns[index];
-		if (!turn || turn.turnNumber !== index || turn.activeColor !== color)
-			throw new Error(`turn ${index} order does not match the initial position`);
-		if (
-			!Array.isArray(turn.offers) ||
-			turn.offers.length !== 2 ||
-			!turn.offers.every(isPair) ||
-			(turn.selectedPairIndex !== 0 && turn.selectedPairIndex !== 1) ||
-			!isPair(turn.dice)
-		)
-			throw new Error(`turn ${index} has invalid pair data`);
-		const selected = turn.offers[turn.selectedPairIndex];
-		if (!samePair(selected, turn.dice))
-			throw new Error(`turn ${index} selected dice do not match its offer`);
-		if (!Array.isArray(turn.moves) || turn.moves.length > 2)
-			throw new Error(`turn ${index} has invalid moves`);
-
-		const rolledDfen = turnFen(position, color, turn.dice);
-		let legalNode = DiceChess.getLegalTurnTree(rolledDfen);
-		if (turn.moves.length === 0 && Object.keys(legalNode).length !== 0)
-			throw new Error(`turn ${index} passed despite available legal paths`);
-		let dfen = rolledDfen;
-		for (const move of turn.moves) {
-			if (typeof move !== 'string' || !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move))
-				throw new Error(`turn ${index} has invalid UCI`);
-			if (!Object.hasOwn(legalNode, move))
-				throw new Error(`turn ${index} is not a legal turn path`);
-			legalNode = legalNode[move];
-			const applied = DiceChess.applyMove(dfen, move.slice(0, 2), move.slice(2, 4), move[4]);
-			if (typeof applied !== 'string') throw new Error(`turn ${index} contains an illegal move`);
-			dfen = applied;
-		}
-		if (turn.moves.length > 0 && Object.keys(legalNode).length !== 0)
-			throw new Error(`turn ${index} ended before exhausting its legal path`);
-		const winner = capturedKingWinner(boardFields(dfen));
-		if (winner !== null && index !== transcript.turns.length - 1)
-			throw new Error(`turn ${index} continued after king capture`);
-		const ended = winner === null ? DiceChess.endTurn(dfen) : dfen;
-		if (typeof ended !== 'string') throw new Error(`turn ${index} could not end`);
-		const after = boardFields(ended);
-		const expectedAfter = boardFields(turn.fenAfter);
-		if (after.join(' ') !== expectedAfter.join(' '))
-			throw new Error(`turn ${index} FEN replay mismatch`);
-		position = after;
+		validateRecordedTurn(turn, index, color);
+		const dfen = replayMoves(turn, index, turnFen(position, color, turn.dice));
+		position = finishRecordedTurn(turn, index, transcript.turns.length, dfen);
 		color = position[1];
 		verifiedTurns += 1;
 	}
 	return { position, verifiedTurns };
 }
 
-/**
- * Independently verifies a complete public transcript. Incomplete records intentionally return
- * `not-verifiable`: public state cannot establish fairness without the terminal seed reveal.
- */
-export function verifyTranscript(transcript) {
-	if (!transcript || transcript.completeness !== 'complete' || transcript.fairness == null)
-		return {
-			status: 'not-verifiable',
-			verifiedTurns: 0,
-			reason: 'complete fairness reveal required',
-		};
+function validateTranscriptHeader(transcript) {
 	if (
 		transcript.provenance?.diceAlgorithm !== LAB_DICE_ALGORITHM ||
 		transcript.variant?.id !== 'choice-2x2d6' ||
@@ -221,7 +221,19 @@ export function verifyTranscript(transcript) {
 		transcript.currentTurn?.phase !== 'Ended'
 	)
 		return fail('complete transcript is not terminal');
-	const result = over.result;
+	const resultFailure = validateTerminalResult(over);
+	if (resultFailure) return resultFailure;
+	if (
+		!Array.isArray(transcript.turns) ||
+		!Number.isSafeInteger(transcript.turns.length) ||
+		transcript.turns.length > SAFE_INTEGER_MAX
+	)
+		return fail('invalid transcript turns');
+	return null;
+}
+
+function validateTerminalResult(over) {
+	const { result } = over;
 	const winTermination = ['KingCaptured', 'Resign', 'Timeout'].includes(over.termination);
 	const resultKeys =
 		result && typeof result === 'object' && !Array.isArray(result) ? Object.keys(result) : [];
@@ -246,78 +258,121 @@ export function verifyTranscript(transcript) {
 	) {
 		return fail('terminal draw result mismatch');
 	}
+	return null;
+}
+
+function verifyRevealedTranscript(transcript) {
+	const { commit, serverSeed, clientSeeds } = transcript.fairness;
+	const seed = decodeServerSeed(serverSeed);
+	if (typeof commit !== 'string' || !/^[a-f0-9]{64}$/.test(commit))
+		return fail('invalid commitment');
+	const actualCommit = createHash('sha256').update(seed).digest('hex');
+	if (actualCommit !== commit) return fail('commitment mismatch');
 	if (
-		!Array.isArray(transcript.turns) ||
-		!Number.isSafeInteger(transcript.turns.length) ||
-		transcript.turns.length > SAFE_INTEGER_MAX
+		!clientSeeds ||
+		typeof clientSeeds.white !== 'string' ||
+		clientSeeds.white.length === 0 ||
+		typeof clientSeeds.black !== 'string' ||
+		clientSeeds.black.length === 0
 	)
-		return fail('invalid transcript turns');
+		return fail('client seeds unavailable');
+	const verified = replayTurns(transcript);
+	return (
+		verifyRecordedOffers(transcript.turns, seed, clientSeeds, verified.verifiedTurns) ??
+		verifyTerminal(transcript, verified, seed, clientSeeds)
+	);
+}
+
+function verifyRecordedOffers(turns, seed, clientSeeds, verifiedTurns) {
+	for (let index = 0; index < turns.length; index += 1) {
+		const expected = laboratoryOffers(seed, clientSeeds.white, clientSeeds.black, index);
+		const turn = turns[index];
+		if (
+			!Array.isArray(turn.offers) ||
+			turn.offers.length !== 2 ||
+			!samePair(turn.offers[0], expected[0]) ||
+			!samePair(turn.offers[1], expected[1])
+		)
+			return fail(`turn ${index} offer mismatch`, verifiedTurns);
+	}
+	return null;
+}
+
+function verifyTerminal(transcript, verified, seed, clientSeeds) {
+	const winner = capturedKingWinner(verified.position);
+	const termination = transcript.status.Ended.over.termination;
+	if ((winner !== null) !== (termination === 'KingCaptured'))
+		return fail('terminal king capture reason mismatch', verified.verifiedTurns);
+	if (winner !== null && transcript.status?.Ended?.over?.result?.Win?.side !== winner)
+		return fail('terminal king capture result mismatch', verified.verifiedTurns);
+	const terminalOffers = transcript.currentTurn?.offers;
+	const terminalSelection = transcript.currentTurn?.selectedPairIndex;
+	const selectionFailure = validateTerminalSelection(
+		transcript,
+		termination,
+		terminalOffers,
+		terminalSelection,
+		verified.verifiedTurns,
+	);
+	if (selectionFailure) return selectionFailure;
+	if (terminalOffers.length > 0) {
+		const terminalTurnNumber =
+			termination === 'KingCaptured' ? transcript.turns.length - 1 : transcript.turns.length;
+		if (terminalTurnNumber < 0) return fail('terminal offers have no originating turn');
+		const expected = laboratoryOffers(
+			seed,
+			clientSeeds.white,
+			clientSeeds.black,
+			terminalTurnNumber,
+		);
+		if (terminalOffers.some((pair, index) => !samePair(pair, expected[index])))
+			return fail('terminal offer mismatch', verified.verifiedTurns);
+	}
+	return { status: 'verified', verifiedTurns: verified.verifiedTurns };
+}
+
+function validateTerminalSelection(
+	transcript,
+	termination,
+	terminalOffers,
+	terminalSelection,
+	verifiedTurns,
+) {
+	if (
+		!Array.isArray(terminalOffers) ||
+		terminalOffers.length > OFFER_COUNT ||
+		!terminalOffers.every(isPair) ||
+		(terminalSelection !== null &&
+			(terminalOffers.length !== OFFER_COUNT ||
+				(terminalSelection !== 0 && terminalSelection !== 1)))
+	)
+		return fail('invalid terminal offers', verifiedTurns);
+	if (
+		termination === 'KingCaptured' &&
+		(transcript.turns.length === 0 ||
+			terminalOffers.length !== OFFER_COUNT ||
+			(terminalSelection !== 0 && terminalSelection !== 1) ||
+			terminalSelection !== transcript.turns.at(-1).selectedPairIndex)
+	)
+		return fail('terminal king capture selection mismatch', verifiedTurns);
+	return null;
+}
+
+/**
+ * Independently verifies a complete public transcript. Incomplete records intentionally return
+ * `not-verifiable`: public state cannot establish fairness without the terminal seed reveal.
+ */
+export function verifyTranscript(transcript) {
+	if (transcript?.completeness !== 'complete' || transcript.fairness == null)
+		return {
+			status: 'not-verifiable',
+			verifiedTurns: 0,
+			reason: 'complete fairness reveal required',
+		};
+	const headerFailure = validateTranscriptHeader(transcript);
+	if (headerFailure) return headerFailure;
 	try {
-		const { commit, serverSeed, clientSeeds } = transcript.fairness;
-		const seed = decodeServerSeed(serverSeed);
-		if (typeof commit !== 'string' || !/^[a-f0-9]{64}$/.test(commit))
-			return fail('invalid commitment');
-		const actualCommit = createHash('sha256').update(seed).digest('hex');
-		if (actualCommit !== commit) return fail('commitment mismatch');
-		if (
-			!clientSeeds ||
-			typeof clientSeeds.white !== 'string' ||
-			clientSeeds.white.length === 0 ||
-			typeof clientSeeds.black !== 'string' ||
-			clientSeeds.black.length === 0
-		)
-			return fail('client seeds unavailable');
-		const verified = replayTurns(transcript);
-		for (let index = 0; index < transcript.turns.length; index += 1) {
-			const expected = laboratoryOffers(seed, clientSeeds.white, clientSeeds.black, index);
-			const turn = transcript.turns[index];
-			if (
-				!Array.isArray(turn.offers) ||
-				turn.offers.length !== 2 ||
-				!samePair(turn.offers[0], expected[0]) ||
-				!samePair(turn.offers[1], expected[1])
-			)
-				return fail(`turn ${index} offer mismatch`, verified.verifiedTurns);
-		}
-		const winner = capturedKingWinner(verified.position);
-		const termination = transcript.status.Ended.over.termination;
-		if ((winner !== null) !== (termination === 'KingCaptured'))
-			return fail('terminal king capture reason mismatch', verified.verifiedTurns);
-		if (winner !== null && transcript.status?.Ended?.over?.result?.Win?.side !== winner)
-			return fail('terminal king capture result mismatch', verified.verifiedTurns);
-		const terminalOffers = transcript.currentTurn?.offers;
-		const terminalSelection = transcript.currentTurn?.selectedPairIndex;
-		if (
-			!Array.isArray(terminalOffers) ||
-			terminalOffers.length > OFFER_COUNT ||
-			!terminalOffers.every(isPair) ||
-			(terminalSelection !== null &&
-				(terminalOffers.length !== OFFER_COUNT ||
-					(terminalSelection !== 0 && terminalSelection !== 1)))
-		)
-			return fail('invalid terminal offers', verified.verifiedTurns);
-		if (
-			termination === 'KingCaptured' &&
-			(transcript.turns.length === 0 ||
-				terminalOffers.length !== OFFER_COUNT ||
-				(terminalSelection !== 0 && terminalSelection !== 1) ||
-				terminalSelection !== transcript.turns.at(-1).selectedPairIndex)
-		)
-			return fail('terminal king capture selection mismatch', verified.verifiedTurns);
-		if (terminalOffers.length > 0) {
-			const terminalTurnNumber =
-				termination === 'KingCaptured' ? transcript.turns.length - 1 : transcript.turns.length;
-			if (terminalTurnNumber < 0) return fail('terminal offers have no originating turn');
-			const expected = laboratoryOffers(
-				seed,
-				clientSeeds.white,
-				clientSeeds.black,
-				terminalTurnNumber,
-			);
-			if (terminalOffers.some((pair, index) => !samePair(pair, expected[index])))
-				return fail('terminal offer mismatch', verified.verifiedTurns);
-		}
-		return { status: 'verified', verifiedTurns: verified.verifiedTurns };
+		return verifyRevealedTranscript(transcript);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'transcript verification failed';
 		return fail(message);

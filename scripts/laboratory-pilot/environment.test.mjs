@@ -1,5 +1,6 @@
 /** Verify cleanup ownership boundaries and artifact identity without starting services. */
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -95,6 +96,37 @@ test('artifact identity is independent of directory location and changes with by
 		assert.notEqual(await artifactDigest(join(root, 'b')), digest);
 		await writeFile(join(root, 'a', 'extra.js'), 'same artifact');
 		assert.notEqual(await artifactDigest(join(root, 'a')), digest);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test('artifact digest keeps byte-sorted order across nested directories', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'lab229-unit-'));
+	try {
+		const files = new Map([
+			['a.txt', 'sibling'],
+			['a/child.txt', 'child'],
+			['nested/a.txt', 'nested first'],
+			['nested/z.txt', 'nested last'],
+			['z.txt', 'last'],
+		]);
+		for (const [name, content] of files) {
+			await mkdir(join(root, name, '..'), { recursive: true });
+			await writeFile(join(root, name), content);
+		}
+
+		const entries = [
+			['a/child.txt', files.get('a/child.txt')],
+			['a.txt', files.get('a.txt')],
+			['nested/a.txt', files.get('nested/a.txt')],
+			['nested/z.txt', files.get('nested/z.txt')],
+			['z.txt', files.get('z.txt')],
+		]
+			.map(([name, content]) => `${createHash('sha256').update(content).digest('hex')}  ${name}\n`)
+			.join('');
+		const expected = createHash('sha256').update(entries).digest('hex');
+		assert.equal(await artifactDigest(root), expected);
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

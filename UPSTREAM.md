@@ -2,6 +2,8 @@
 
 The imported qualification tooling also receives explicit deterministic comparators, clearer credential-key validation, a unary participant-frame predicate, and an absolute interpreter path for process startup. These address the first independent Sonar review without changing application rules or protocol behavior. CI installs locked dependencies without dependency lifecycle scripts and runs the repository's own localization preparation explicitly.
 
+The follow-up Sonar review splits transcript validation and browser recovery into focused helpers, adds rejection/order regression tests, and concurrently reads independent assets, routes and fixture data. Concurrent fixture work settles before cleanup and keeps report order; artifact hashing keeps its original byte-sorted directory traversal. Shared game transitions, retry backoff, viewport changes and owned-service startup remain sequential.
+
 The initial client was extracted from [fortemate/dicechess-play at d383a4109d040e39533af24653579cb783b39936](https://github.com/fortemate/dicechess-play/tree/d383a4109d040e39533af24653579cb783b39936). `UPSTREAM.json` records original SHA-256 hashes and source-to-target mappings before adaptations. It is an import inventory, not a checksum of the current working tree.
 
 Adaptations are limited to the standalone package, tooling and documentation, the Fortemate Choice display name, three laboratory-only message catalogs, and relocation of the component-test stub. `src/lib/moveTreeWalker.ts` retains only the shared `MoveTree` interface from that revision; the ordinary site's chessground runtime walker is excluded. The artifact directory and compatibility command aliases remain unchanged for the isolated runners.

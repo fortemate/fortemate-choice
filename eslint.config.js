@@ -73,7 +73,7 @@ export default ts.config(
 					// Not copy: a licence identifier and the two SI-ish rating/percent suffixes that
 					// survive the two-letter floor. Keep this list short — reaching for it instead of
 					// a catalog key is how a guard rots.
-					allowPattern: '^(AGPL-3\\.0|CC BY-SA 4\\.0)$',
+					allowPattern: String.raw`^(AGPL-3\.0|CC BY-SA 4\.0)$`,
 				},
 			],
 		},

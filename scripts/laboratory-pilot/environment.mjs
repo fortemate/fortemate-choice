@@ -14,24 +14,25 @@ import { API_ORIGIN, validateRehearsal } from './configuration.mjs';
 const exec = promisify(execFile);
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export async function artifactDigest(directory) {
-	const entries = [];
 	async function visit(folder, prefix = '') {
-		for (const item of (await readdir(folder, { withFileTypes: true })).sort((a, b) =>
+		const items = (await readdir(folder, { withFileTypes: true })).sort((a, b) =>
 			Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)),
-		)) {
-			const name = `${prefix}${item.name}`;
-			if (item.isDirectory()) await visit(resolve(folder, item.name), `${name}/`);
-			else {
+		);
+		const children = await Promise.all(
+			items.map(async (item) => {
+				const name = `${prefix}${item.name}`;
+				if (item.isDirectory()) return visit(resolve(folder, item.name), `${name}/`);
 				assert.ok(item.isFile(), 'Artifact must contain only regular files');
-				entries.push(
+				return [
 					`${createHash('sha256')
 						.update(await readFile(resolve(folder, item.name)))
 						.digest('hex')}  ${name}\n`,
-				);
-			}
-		}
+				];
+			}),
+		);
+		return children.flat();
 	}
-	await visit(directory);
+	const entries = await visit(directory);
 	assert.ok(entries.length > 0);
 	return createHash('sha256').update(entries.join('')).digest('hex');
 }
@@ -113,17 +114,21 @@ export class PilotEnvironment {
 		);
 		if (this.wsl)
 			assert.equal((await this.linux('wslinfo', ['--networking-mode'])).stdout.trim(), 'nat');
-		for (const port of [8443, 9443]) {
-			const busy = await new Promise((done) => {
-				const socket = net.connect(port, '127.0.0.1');
-				socket.once('connect', () => {
-					socket.destroy();
-					done(true);
+		const portChecks = await Promise.all(
+			[8443, 9443].map(async (port) => {
+				const busy = await new Promise((done) => {
+					const socket = net.connect(port, '127.0.0.1');
+					socket.once('connect', () => {
+						socket.destroy();
+						done(true);
+					});
+					socket.once('error', () => done(false));
 				});
-				socket.once('error', () => done(false));
-			});
+				return { port, busy };
+			}),
+		);
+		for (const { busy } of portChecks)
 			assert.equal(busy, false, 'A rehearsal port is occupied; refusing to reuse another service');
-		}
 		const artifact = await localPath(resolve(ROOT, 'dist-laboratory'));
 		this.state = (
 			await this.linux('mktemp', ['-d', '/tmp/dicechess-lab229.XXXXXXXX'])
@@ -199,10 +204,11 @@ export class PilotEnvironment {
 			])
 		).stdout.trim();
 	}
-	async restart(options = { admission: true }) {
+	async restart(options) {
+		const restartOptions = options === undefined ? { admission: true } : options;
 		await this.compose(
 			['up', '-d', '--force-recreate', '--no-deps', '--wait', '--wait-timeout', '150', 'api'],
-			options,
+			restartOptions,
 		);
 		assert.equal((await this.request('/health')).status, 200);
 	}

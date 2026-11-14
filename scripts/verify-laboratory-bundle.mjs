@@ -69,8 +69,10 @@ await readOutput('favicon.svg');
 await readOutput('LICENSE.txt');
 await readOutput('THIRD_PARTY_NOTICES.md');
 await readOutput('licenses/GPL-2.0.txt');
-for (const piece of ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']) {
-	await readOutput(`pieces/cburnett/${piece}.svg`);
-}
+await Promise.all(
+	['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'].map((piece) =>
+		readOutput(`pieces/cburnett/${piece}.svg`),
+	),
+);
 
 console.log(`Laboratory bundle verified (${manifest.modules.length} source modules).`);
