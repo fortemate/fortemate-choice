@@ -1,5 +1,5 @@
 import { bindings, defineConfig } from 'cf/config';
-import { closedPreviewSettings } from './hosting/closed-preview';
+import { closedPreviewSettings } from './hosting/closed-preview.ts';
 
 // Local asset verification and an explicitly configured closed deployment share one client.
 export default defineConfig(({ mode }) => {

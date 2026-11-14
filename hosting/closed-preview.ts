@@ -1,4 +1,4 @@
-import { previewOrigin } from './preview-origin';
+import { previewOrigin } from './preview-origin.ts';
 
 /** Deployment coordinates are operator inputs, never live infrastructure defaults. */
 export function closedPreviewSettings(env: Record<string, string | undefined>) {
