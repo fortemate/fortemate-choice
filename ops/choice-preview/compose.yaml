@@ -1,0 +1,133 @@
+services:
+  api:
+    image: ghcr.io/fortemate/dicechess-play-api@sha256:b37cc8afa7c78c4cead049eab1214085c871944c3cdae5d380808327c9c935ff
+    user: '10001:10001'
+    entrypoint: ['/bin/sh', '/pilot/api-entrypoint.sh']
+    read_only: true
+    restart: 'no'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PLAY_RUNTIME_MODE: laboratory
+      LAB_DB_URL: jdbc:postgresql://db:5432/laboratory
+      LAB_DB_USER: laboratory_app
+      LAB_BIND_HOST: 0.0.0.0
+      LAB_PORT: '8081'
+      LAB_DB_POOL_SIZE: '2'
+      LAB_ADMISSION_OPEN: ${CHOICE_PREVIEW_ADMISSION_OPEN:-false}
+      LAB_JOIN_WINDOW_SECONDS: ${CHOICE_PREVIEW_JOIN_WINDOW_SECONDS:-300}
+      LAB_FRONTEND_ORIGIN: ${CHOICE_PREVIEW_ORIGIN:?Set CHOICE_PREVIEW_ORIGIN to the exact HTTPS preview origin}
+      JAVA_OPTS: '-Xmx512m -XX:ActiveProcessorCount=2'
+    volumes:
+      - type: bind
+        source: ../laboratory-pilot/api-entrypoint.sh
+        target: /pilot/api-entrypoint.sh
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - source: choice_preview_app_password
+        target: laboratory_password
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777,uid=10001,gid=10001
+    networks:
+      database: {}
+      edge:
+        aliases:
+          - choice-preview-api
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8081/health >/dev/null || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    cpus: 1.0
+    mem_limit: 1g
+
+  db:
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    user: '70:70'
+    read_only: true
+    restart: 'no'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_DB: postgres
+    volumes:
+      - choice-preview-data:/var/lib/postgresql
+      - type: bind
+        source: ../laboratory-pilot/init-database.sql
+        target: /docker-entrypoint-initdb.d/10-laboratory.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - source: choice_preview_app_password
+        target: laboratory_password
+      - source: choice_preview_db_admin_password
+        target: postgres_admin_password
+    tmpfs:
+      - /run/postgresql:rw,noexec,nosuid,size=8m,mode=755,uid=70,gid=70
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777,uid=70,gid=70
+    networks:
+      - database
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    cpus: 0.5
+    mem_limit: 512m
+
+  cloudflared:
+    image: cloudflare/cloudflared@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    user: '65532:65532'
+    command: ['tunnel', '--no-autoupdate', 'run', '--token-file', '/run/secrets/tunnel_token']
+    read_only: true
+    restart: 'no'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - source: choice_preview_tunnel_token
+        target: tunnel_token
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777,uid=65532,gid=65532
+    networks:
+      - edge
+      - connector-egress
+    depends_on:
+      api:
+        condition: service_healthy
+    cpus: 0.25
+    mem_limit: 192m
+
+volumes:
+  choice-preview-data:
+
+networks:
+  database:
+    internal: true
+  edge:
+    internal: true
+  connector-egress:
+    internal: false
+
+secrets:
+  choice_preview_app_password:
+    file: ${CHOICE_PREVIEW_APP_PASSWORD_FILE:?Set CHOICE_PREVIEW_APP_PASSWORD_FILE to the app password file}
+  choice_preview_db_admin_password:
+    file: ${CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE:?Set CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE to the PostgreSQL admin password file}
+  choice_preview_tunnel_token:
+    file: ${CHOICE_PREVIEW_TUNNEL_TOKEN_FILE:?Set CHOICE_PREVIEW_TUNNEL_TOKEN_FILE to the owned tunnel token file}

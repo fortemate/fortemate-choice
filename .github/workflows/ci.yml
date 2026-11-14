@@ -68,6 +68,20 @@ jobs:
         env:
           CHOICE_PREVIEW_API_URL: http://127.0.0.1:8081
 
+      - name: Validate the closed preview build without deployment
+        run: npm run build:closed-preview && npm run check:hosting
+        env:
+          CHOICE_PREVIEW_API_URL: https://choice-preview-web.example.test
+          CHOICE_PREVIEW_VPC_SERVICE_ID: 01234567-89ab-cdef-0123-456789abcdef
+
+      - name: Validate the isolated backend configuration
+        run: docker compose --file ops/choice-preview/compose.yaml config --quiet
+        env:
+          CHOICE_PREVIEW_ORIGIN: https://choice-preview-web.example.test
+          CHOICE_PREVIEW_APP_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-app
+          CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-admin
+          CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: ${{ runner.temp }}/choice-preview-tunnel
+
       - name: Analyze with SonarQube Cloud
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0

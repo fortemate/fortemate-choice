@@ -1,6 +1,6 @@
 # Isolated client preview runbook
 
-This runbook builds and checks the client preview locally. It does not deploy to Cloudflare, create DNS records, configure account bindings, or change the live pilot. The preview is not an access-control boundary: do not publish it or put capability links on a public hostname.
+The local commands below build and check the client preview without deployment. A separately authorized closed deployment uses the additional mode described below and the [closed backend runbook](../ops/choice-preview/README.md). Neither mode changes the live pilot.
 
 ## Requirements and API target
 
@@ -37,3 +37,11 @@ The Worker serves native static assets first. It may return the application shel
 ## Before any future public preview
 
 Public hosting needs a separate owner decision and isolated preview API, database, and database role. The API must allow only the exact preview origin through CORS. If invitation links contain seat capabilities, protect access with Cloudflare Access; a preview hostname or an unlisted URL is not authentication. Keep preview data and credentials separate from production. This runbook supplies no cloud credentials, deploy procedure, DNS change, or automatic deployment workflow.
+
+## Authorized closed deployment
+
+`npm run build:closed-preview` selects `cloudflare-closed-preview`. It requires an HTTPS `CHOICE_PREVIEW_API_URL` whose hostname begins with `choice-preview-`, and an explicit `CHOICE_PREVIEW_VPC_SERVICE_ID`. The client and API share that origin. The Worker binds only to the selected private VPC Service; it cannot select arbitrary upstream URLs and does not expose ordinary API routes. Both alternate `workers.dev` and version-preview URLs are disabled. The operator must configure Access before attaching the custom domain and verify the effective policy afterward.
+
+The browser includes the Access session only for an exact same-origin API target. Other origins retain credential omission. The proxy forwards only the laboratory route/method allowlist, enforces the browser origin for mutations and WebSocket upgrades, and removes Access credentials before reaching the API. Seat authentication remains in the first WebSocket frame; rematch consent retains its existing capability header. The Worker returns WebSocket upgrade responses unchanged.
+
+Workers VPC is a beta dependency. Unit tests and a successful build do not prove remote HTTP/WebSocket connectivity: both must pass against the deployed, restricted preview before it is handed to testers. CI validates closed configuration using reserved example coordinates, without deploying or contacting a real VPC service.

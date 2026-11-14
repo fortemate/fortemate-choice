@@ -1,7 +1,8 @@
 /**
  * Revision-1 laboratory HTTP boundary. Every response is checked before a capability is stored or
  * shared: an old/classic server must never turn a laboratory invitation into an ordinary game.
- * Uses only the explicitly supplied laboratory origin, anonymous identity and cookie-free requests.
+ * Uses only the explicitly supplied laboratory origin and anonymous game identity; cookies stay
+ * same-origin so an access gateway can authenticate the browser without sharing cross-origin cookies.
  */
 import type {
 	GameStatusWire,
@@ -77,6 +78,11 @@ export function laboratoryOrigin(value: string): string {
 		/* Configuration errors never echo a possibly credential-bearing URL. */
 	}
 	throw new LaboratoryError('incompatible');
+}
+
+/** Access gateway cookies are allowed only for the browser's exact configured API origin. */
+export function laboratoryCredentials(origin: string): RequestCredentials {
+	return globalThis.location?.origin === origin ? 'same-origin' : 'omit';
 }
 
 function validIdentity(value: unknown): boolean {
@@ -226,7 +232,7 @@ export class LaboratoryApi {
 		try {
 			response = await this.fetcher(new URL(path, this.origin), {
 				...init,
-				credentials: 'omit',
+				credentials: laboratoryCredentials(this.origin),
 				referrerPolicy: 'no-referrer',
 				cache: 'no-store',
 			});

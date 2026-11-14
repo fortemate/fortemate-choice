@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	LaboratoryApi,
 	LaboratoryError,
@@ -107,7 +107,77 @@ function expectCode(promise: Promise<unknown>, code: string) {
 	return expect(promise).rejects.toMatchObject({ name: 'LaboratoryError', code });
 }
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('laboratory API boundary', () => {
+	it.each([
+		['https://choice-preview.example.test', 'https://choice-preview.example.test', 'same-origin'],
+		['http://127.0.0.1:8787', 'http://127.0.0.1:8787', 'same-origin'],
+		['https://choice-preview.example.test', 'https://other-preview.example.test', 'omit'],
+		['https://choice-preview.example.test', 'http://choice-preview.example.test', 'omit'],
+		['http://127.0.0.1:8787', 'http://127.0.0.1:8081', 'omit'],
+		['https://choice-preview.example.test', 'https://choice-preview.example.test:8443', 'omit'],
+		['https://choice-preview.example.test', 'https://api.choice-preview.example.test', 'omit'],
+	])(
+		'uses browser origin %s to limit cookies for API %s to %s',
+		async (browserOrigin, apiOrigin, credentials) => {
+			vi.stubGlobal('location', { origin: browserOrigin });
+			const { fetcher, requests } = createFetcher(
+				jsonResponse(creation()),
+				jsonResponse(gameState()),
+				jsonResponse({ version: 1, dfen: 'valid-dfen', dicePending: false, legalMoves: null }),
+			);
+			const api = new LaboratoryApi(apiOrigin, rulesVersion, fetcher);
+			await api.create(guestId, timeControl);
+			await api.moves(gameId);
+			expect(requests).toHaveLength(3);
+			expect(requests.map(({ input }) => String(input))).toEqual([
+				`${apiOrigin}/games`,
+				`${apiOrigin}/games/${gameId}`,
+				`${apiOrigin}/games/${gameId}/moves`,
+			]);
+			for (const { input, init } of requests) {
+				expect(init?.credentials).toBe(credentials);
+				expect(init?.referrerPolicy).toBe('no-referrer');
+				expect(init?.cache).toBe('no-store');
+				const url = new URL(String(input));
+				expect(url.search).toBe('');
+				expect(url.hash).toBe('');
+				for (const { token } of creation().tokens) expect(url.href).not.toContain(token);
+			}
+		},
+	);
+
+	it('omits cookies when no browser location is available', async () => {
+		vi.stubGlobal('location', undefined);
+		const { fetcher, requests } = createFetcher(jsonResponse(gameState()));
+		await new LaboratoryApi('https://choice-preview.example.test', rulesVersion, fetcher).state(
+			gameId,
+		);
+		expect(requests).toHaveLength(1);
+		expect(requests[0].init?.credentials).toBe('omit');
+	});
+
+	it.each(['https://choice-preview.example.test', 'https://other-preview.example.test'])(
+		'does not retry or request state after an access rejection from %s',
+		async (origin) => {
+			vi.stubGlobal('location', { origin: 'https://choice-preview.example.test' });
+			const { fetcher, requests } = createFetcher(
+				new Response(null, { status: 403 }),
+				jsonResponse(creation()),
+			);
+			await expectCode(
+				new LaboratoryApi(origin, rulesVersion, fetcher).create(guestId, timeControl),
+				'unavailable',
+			);
+			expect(requests).toHaveLength(1);
+			expect(String(requests[0].input)).toBe(`${origin}/games`);
+			expect(requests[0].init?.credentials).toBe(
+				origin === globalThis.location.origin ? 'same-origin' : 'omit',
+			);
+		},
+	);
+
 	it('posts the exact opt-in request and verifies the returned state using only the configured origin', async () => {
 		const { fetcher, requests } = createFetcher(
 			jsonResponse(creation()),
