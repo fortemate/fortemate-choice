@@ -16,3 +16,5 @@ ops/laboratory-pilot/evidence/
 coverage/
 test-results/
 playwright-report/
+.cloudflare/
+dist-hosting/

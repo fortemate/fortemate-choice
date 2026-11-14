@@ -93,6 +93,8 @@ export default ts.config(
 			'coverage/',
 			'test-results/',
 			'playwright-report/',
+			'.cloudflare/',
+			'dist-hosting/',
 		],
 	},
 );

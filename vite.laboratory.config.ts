@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type ConfigEnv, type Plugin } from 'vite';
 import { bootstrapAppearance } from './src/lib/laboratory/appearance';
 import { laboratoryOrigin } from './src/lib/laboratory/api';
 
@@ -38,6 +38,7 @@ function isAllowedSource(relativePath: string): boolean {
 function emitStandaloneFiles(): Plugin {
 	return {
 		name: 'laboratory-standalone-files',
+		applyToEnvironment: (environment) => environment.name === 'client',
 		generateBundle(_options, bundle) {
 			const sourceModules = new Set<string>();
 			for (const output of Object.values(bundle)) {
@@ -131,9 +132,9 @@ function appearanceBootstrap(): Plugin {
 	};
 }
 
-export default defineConfig(({ mode }) => {
+export function laboratoryConfig({ mode }: ConfigEnv, previewApiOrigin?: string) {
 	const env = loadEnv(mode, repoRoot, 'VITE_LAB_');
-	const apiOrigin = laboratoryOrigin(env.VITE_LAB_API_URL ?? '');
+	const apiOrigin = laboratoryOrigin(previewApiOrigin ?? env.VITE_LAB_API_URL ?? '');
 	const packageJson = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
 		dependencies: Record<string, string>;
 	};
@@ -170,4 +171,6 @@ export default defineConfig(({ mode }) => {
 			sourcemap: false,
 		},
 	};
-});
+}
+
+export default defineConfig(laboratoryConfig);

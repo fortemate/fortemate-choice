@@ -9,7 +9,12 @@ import assert from 'node:assert/strict';
 import net from 'node:net';
 import https from 'node:https';
 import { qualification } from '../laboratory-acceptance/lifecycle.mjs';
-import { API_ORIGIN, validateRehearsal } from './configuration.mjs';
+import {
+	APP_ORIGIN,
+	API_ORIGIN,
+	validateFrontendOrigin,
+	validateRehearsal,
+} from './configuration.mjs';
 
 const exec = promisify(execFile);
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -38,7 +43,8 @@ export async function artifactDigest(directory) {
 }
 
 export class PilotEnvironment {
-	constructor() {
+	constructor({ frontendOrigin = APP_ORIGIN } = {}) {
+		this.frontendOrigin = validateFrontendOrigin(frontendOrigin);
 		this.project = `lab229-${randomBytes(8).toString('hex')}`;
 		this.wsl =
 			process.platform === 'win32'
@@ -134,11 +140,17 @@ export class PilotEnvironment {
 			await this.linux('mktemp', ['-d', '/tmp/dicechess-lab229.XXXXXXXX'])
 		).stdout.trim();
 		assert.match(this.state, /^\/tmp\/dicechess-lab229\.[A-Za-z0-9]+$/);
-		await this.linux('sh', [`${this.ops}/prepare-rehearsal.sh`, this.state, artifact]);
+		await this.linux('sh', [
+			`${this.ops}/prepare-rehearsal.sh`,
+			this.state,
+			artifact,
+			this.frontendOrigin,
+		]);
 		this.ca = (await this.linux('cat', [`${this.state}/tls.crt`])).stdout;
 		validateRehearsal(
 			JSON.parse((await this.compose(['config', '--format', 'json'])).stdout),
 			this.project,
+			{ frontendOrigin: this.frontendOrigin },
 		);
 		this.owned = true;
 		await this.compose(['up', '-d', '--wait', '--wait-timeout', '180']);
@@ -148,7 +160,7 @@ export class PilotEnvironment {
 		{ origin = API_ORIGIN, method = 'GET', headers = {}, body, trusted = true } = {},
 	) {
 		const url = new URL(path, origin);
-		assert.ok(['https://localhost:8443', API_ORIGIN].includes(url.origin));
+		assert.ok([APP_ORIGIN, API_ORIGIN].includes(url.origin));
 		return new Promise((done, reject) => {
 			const request = https.request(
 				url,

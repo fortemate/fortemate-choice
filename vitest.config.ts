@@ -17,7 +17,7 @@ export default defineConfig({
 	resolve: { alias: { '#lib': fileURLToPath(new URL('./src/lib', import.meta.url)) } },
 	test: {
 		environment: 'jsdom',
-		include: ['src/**/*.test.ts', 'eslint-local/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'eslint-local/**/*.test.ts', 'hosting/**/*.test.ts'],
 		setupFiles: ['./vitest-setup.ts'],
 		coverage: {
 			provider: 'v8',

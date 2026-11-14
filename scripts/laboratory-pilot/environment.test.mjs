@@ -6,6 +6,30 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PilotEnvironment, artifactDigest } from './environment.mjs';
+import { APP_ORIGIN, PREVIEW_ORIGIN } from './configuration.mjs';
+
+test('frontend defaults to the existing TLS gateway and accepts only the isolated preview', () => {
+	assert.equal(new PilotEnvironment().frontendOrigin, APP_ORIGIN);
+	assert.equal(new PilotEnvironment({}).frontendOrigin, APP_ORIGIN);
+	assert.equal(
+		new PilotEnvironment({ frontendOrigin: PREVIEW_ORIGIN }).frontendOrigin,
+		PREVIEW_ORIGIN,
+	);
+	for (const frontendOrigin of [
+		'https://public.example',
+		'http://localhost:8787',
+		'http://127.0.0.1:8788',
+		`${PREVIEW_ORIGIN}/`,
+	]) {
+		assert.throws(() => new PilotEnvironment({ frontendOrigin }));
+	}
+});
+
+test('preview selection does not permit HTTP or public origins in the TLS request helper', async () => {
+	const env = new PilotEnvironment({ frontendOrigin: PREVIEW_ORIGIN });
+	await assert.rejects(() => env.request('/health', { origin: PREVIEW_ORIGIN }));
+	await assert.rejects(() => env.request('/health', { origin: 'https://public.example' }));
+});
 
 test('native command launch preserves literal arguments and cannot enable a shell', async () => {
 	const env = new PilotEnvironment();

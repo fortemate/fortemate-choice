@@ -3,6 +3,11 @@
 set -eu
 state=$1
 artifact=$2
+frontend_origin=${3-https://localhost:8443}
+case "$frontend_origin" in
+  https://localhost:8443|http://127.0.0.1:8787) ;;
+  *) printf '%s\n' 'Frontend origin must be an approved loopback rehearsal endpoint' >&2; exit 2 ;;
+esac
 umask 077
 app_password=$(openssl rand -hex 32)
 admin_password=$(openssl rand -hex 32)
@@ -17,7 +22,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
 chmod 444 "$state/app-password" "$state/admin-password" "$state/tls.key" "$state/tls.crt"
 cat > "$state/operator.env" <<EOF
 LAB_FRONTEND_DIR=$artifact
-LAB_FRONTEND_ORIGIN=https://localhost:8443
+LAB_FRONTEND_ORIGIN=$frontend_origin
 LAB_TLS_CERT_FILE=$state/tls.crt
 LAB_TLS_KEY_FILE=$state/tls.key
 LAB_DATABASE_PASSWORD_FILE=$state/app-password

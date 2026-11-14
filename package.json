@@ -10,7 +10,7 @@
 		"type": "git"
 	},
 	"engines": {
-		"node": ">=26 <27"
+		"node": ">=26.12 <27"
 	},
 	"scripts": {
 		"dev": "vite",
@@ -21,6 +21,11 @@
 		"postbuild:laboratory": "node scripts/verify-laboratory-bundle.mjs",
 		"preview": "vite preview --port 4175 --strictPort",
 		"preview:laboratory": "vite preview --config vite.laboratory.config.ts --port 4175 --strictPort",
+		"build:hosting": "cf build --mode cloudflare-preview",
+		"preview:hosting": "vite preview --mode cloudflare-preview",
+		"check:hosting": "tsc --project hosting/tsconfig.json",
+		"test:hosting": "playwright test --config playwright.hosting.config.ts",
+		"test:hosting:acceptance": "node scripts/hosting-preview/run.mjs",
 		"check": "npm run lint && npm run format:check && npm run check:types",
 		"check:types": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide && svelte-check --config ./svelte.config.js --tsconfig ./tsconfig.json",
 		"lint": "eslint .",
@@ -42,6 +47,7 @@
 		"@fortemate/dicechess-engine": "0.18.2"
 	},
 	"devDependencies": {
+		"@cloudflare/vite-plugin": "2.0.0-beta.v.17",
 		"@eslint/js": "10.0.1",
 		"@inlang/paraglide-js": "2.25.2",
 		"@playwright/test": "1.64.1",
@@ -50,6 +56,7 @@
 		"@testing-library/svelte": "5.4.2",
 		"@types/node": "26.6.6",
 		"@vitest/coverage-v8": "5.1.0",
+		"cf": "1.0.0-beta.32",
 		"eslint": "10.15.0",
 		"eslint-plugin-svelte": "3.23.1",
 		"globals": "17.12.0",

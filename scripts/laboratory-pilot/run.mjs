@@ -4,13 +4,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { PilotEnvironment, ROOT, artifactDigest } from './environment.mjs';
 import { SERVER_REVISION, IMAGES, APP_ORIGIN, API_ORIGIN } from './configuration.mjs';
 import { runBrowserAcceptance } from '../laboratory-acceptance/browser.mjs';
 import { verifyTranscript } from '../laboratory-acceptance/oracle.mjs';
 import { qualification } from '../laboratory-acceptance/lifecycle.mjs';
+import { gameRequest, incompleteFixture } from './fixtures.mjs';
 
 const exec = promisify(execFile);
 const output = resolve(ROOT, 'test-results/laboratory-pilot', `run-${Date.now()}`);
@@ -34,72 +34,10 @@ async function settleOperations(operations) {
 	if (failure) throw failure.reason;
 	return results.map((result) => result.value);
 }
-const gameRequest = () => ({
-	white: randomUUID(),
-	black: randomUUID(),
-	timeControl: { Unlimited: {} },
-	variant: { id: 'choice-2x2d6', revision: 1 },
-	labProtocolVersion: 1,
-	rated: false,
-});
+
 async function state(id) {
 	assert.match(id, /^[0-9a-f-]{36}$/);
 	return (await env.request(`/games/${id}`)).json();
-}
-async function incompleteFixture() {
-	await env.restart({ admission: true, join: 2 });
-	const response = await env.request('/games', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: gameRequest(),
-	});
-	assert.equal(response.status, 201);
-	const room = response.json();
-	const context = await browser.newContext({ ignoreHTTPSErrors: true });
-	try {
-		const page = await context.newPage();
-		await page.goto(APP_ORIGIN);
-		await page.evaluate(
-			async ({ room, api }) => {
-				await new Promise((done, reject) => {
-					const url = new URL(`/games/${room.gameId}/ws`, api);
-					url.protocol = 'wss:';
-					const socket = new WebSocket(url);
-					const timer = setTimeout(() => {
-						socket.close();
-						reject(new Error('Incomplete fixture timed out'));
-					}, 12000);
-					socket.onopen = () =>
-						socket.send(
-							JSON.stringify({
-								LabAuthenticate: {
-									token: room.tokens.find((t) => t.seat === 'White').token,
-									guest: crypto.randomUUID(),
-								},
-							}),
-						);
-					socket.onmessage = (message) => {
-						const event = JSON.parse(message.data);
-						if (event.LabAuthenticated)
-							socket.send(JSON.stringify({ SubmitSeed: { seed: 'pilot-incomplete-white' } }));
-						if (event.GameEnded) {
-							clearTimeout(timer);
-							socket.close();
-							done();
-						}
-					};
-				});
-			},
-			{ room, api: API_ORIGIN },
-		);
-	} finally {
-		await context.close();
-	}
-	const record = (await env.request(`/games/${room.gameId}/transcript`)).json();
-	assert.equal(record.completeness, 'incomplete');
-	assert.equal(record.fairness, null);
-	await env.restart({ admission: true });
-	return room;
 }
 
 try {
@@ -225,7 +163,12 @@ try {
 	);
 	pass('runtime-nonroot-readonly-internal-networks');
 	browser = await chromium.launch({ headless: true });
-	const incompleteRoom = await incompleteFixture();
+	const incompleteRoom = await incompleteFixture({
+		env,
+		browser,
+		appOrigin: APP_ORIGIN,
+		seed: 'pilot-incomplete-white',
+	});
 	assert.equal((await env.request(`/games/${incompleteRoom.gameId}/ws?token=invalid`)).status, 400);
 	pass('wss-missing-participant-and-url-auth-refusal');
 	// Only these disposable contexts bypass the generated leaf's trust error. Node requests above
