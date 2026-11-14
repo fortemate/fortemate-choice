@@ -6,7 +6,6 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { randomUUID } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { PilotEnvironment, ROOT, artifactDigest } from '../laboratory-pilot/environment.mjs';
 import {
@@ -18,6 +17,7 @@ import {
 import { runBrowserAcceptance } from '../laboratory-acceptance/browser.mjs';
 import { verifyTranscript } from '../laboratory-acceptance/oracle.mjs';
 import { qualification } from '../laboratory-acceptance/lifecycle.mjs';
+import { incompleteFixture } from '../laboratory-pilot/fixtures.mjs';
 
 const exec = promisify(execFile);
 const output = resolve(ROOT, 'test-results/hosting-preview', `run-${Date.now()}`);
@@ -37,14 +37,6 @@ const pass = (scenario) => {
 };
 const git = async (...args) => (await exec('git', args, { cwd: ROOT })).stdout.trim();
 const sourceStatus = () => git('status', '--porcelain', '--untracked-files=all');
-const gameRequest = () => ({
-	white: randomUUID(),
-	black: randomUUID(),
-	timeControl: { Unlimited: {} },
-	variant: { id: 'choice-2x2d6', revision: 1 },
-	labProtocolVersion: 1,
-	rated: false,
-});
 
 async function build(script) {
 	await exec('npm', ['run', script], {
@@ -112,63 +104,6 @@ async function stopPreview() {
 	throw new Error('Owned native preview process group survived cleanup');
 }
 
-async function incompleteFixture() {
-	await env.restart({ admission: true, join: 2 });
-	const response = await env.request('/games', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: gameRequest(),
-	});
-	assert.equal(response.status, 201);
-	const room = response.json();
-	const context = await browser.newContext({ ignoreHTTPSErrors: true });
-	try {
-		const page = await context.newPage();
-		await page.goto(PREVIEW_ORIGIN);
-		await page.evaluate(
-			async ({ room, api }) => {
-				await new Promise((done, reject) => {
-					const url = new URL(`/games/${room.gameId}/ws`, api);
-					url.protocol = 'wss:';
-					const socket = new WebSocket(url);
-					const timer = setTimeout(() => {
-						socket.close();
-						reject(new Error('Incomplete fixture timed out'));
-					}, 12000);
-					socket.onopen = () =>
-						socket.send(
-							JSON.stringify({
-								LabAuthenticate: {
-									token: room.tokens.find((t) => t.seat === 'White').token,
-									guest: crypto.randomUUID(),
-								},
-							}),
-						);
-					socket.onmessage = (message) => {
-						const event = JSON.parse(message.data);
-						if (event.LabAuthenticated)
-							socket.send(JSON.stringify({ SubmitSeed: { seed: 'preview-incomplete-white' } }));
-						if (event.GameEnded) {
-							clearTimeout(timer);
-							socket.close();
-							done();
-						}
-					};
-				});
-			},
-			{ room, api: API_ORIGIN },
-		);
-	} finally {
-		await context.close();
-	}
-	assert.equal(
-		(await env.request(`/games/${room.gameId}/transcript`)).json().completeness,
-		'incomplete',
-	);
-	await env.restart({ admission: true });
-	return room;
-}
-
 try {
 	await mkdir(output, { recursive: true });
 	assert.equal(
@@ -216,7 +151,12 @@ try {
 	await startPreview();
 	pass('owned-loopback-native-preview');
 	browser = await chromium.launch({ headless: true });
-	const incompleteRoom = await incompleteFixture();
+	const incompleteRoom = await incompleteFixture({
+		env,
+		browser,
+		appOrigin: PREVIEW_ORIGIN,
+		seed: 'preview-incomplete-white',
+	});
 	const evidence = await runBrowserAcceptance({
 		browser: {
 			newContext: (options) => browser.newContext({ ...options, ignoreHTTPSErrors: true }),
