@@ -1,5 +1,9 @@
 # Isolated client preview runbook
 
+For the separately prepared branded release, use the [Choice launch runbook](../ops/choice-launch/README.md).
+Its explicit release mode uses a different Worker and a fresh isolated backend;
+the two preview modes below retain their existing targets and behavior.
+
 The local commands below build and check the client preview without deployment. A separately authorized closed deployment uses the additional mode described below and the [closed backend runbook](../ops/choice-preview/README.md). Neither mode changes the live pilot.
 
 ## Requirements and API target

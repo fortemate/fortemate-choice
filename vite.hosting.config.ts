@@ -3,7 +3,7 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 import { loadEnv, type ConfigEnv, type Plugin } from 'vite';
 import { laboratoryConfig } from './vite.laboratory.config';
 import { previewOrigin } from './hosting/preview-origin';
-import { closedPreviewSettings } from './hosting/closed-preview';
+import { deploymentSettings } from './hosting/deployment-settings';
 
 const repoRoot = fileURLToPath(new URL('./', import.meta.url));
 
@@ -32,9 +32,9 @@ function hostingFiles(): Plugin {
 }
 
 export function hostingConfig(context: ConfigEnv) {
-	const env = loadEnv(context.mode, repoRoot, 'CHOICE_PREVIEW_');
-	const apiOrigin = previewOrigin(env.CHOICE_PREVIEW_API_URL ?? '');
-	if (context.mode === 'cloudflare-closed-preview') closedPreviewSettings(env);
+	const env = loadEnv(context.mode, repoRoot, 'CHOICE_');
+	const { privateApi } = deploymentSettings(context.mode, env);
+	const apiOrigin = privateApi?.origin ?? previewOrigin(env.CHOICE_PREVIEW_API_URL ?? '');
 	const client = laboratoryConfig(context, apiOrigin);
 	return {
 		...client,

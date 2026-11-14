@@ -40,6 +40,13 @@ The [hosting decision](docs/hosting-decision.md) selects Cloudflare Workers Stat
 
 ## Repository boundaries
 
+The [Choice launch runbook](ops/choice-launch/README.md) prepares a dedicated
+`cloudflare-release` build with an explicitly selected branded origin and private
+API service. It starts with a new isolated database and keeps closed Access; old
+laboratory games, invitation links and browser storage are not migrated. The
+release Worker is separate from the preview. `npm run build:release` builds only;
+CI validates reserved example coordinates without deploying or changing DNS.
+
 Dependabot PRs run the full test and build pipeline without Sonar credentials. Their
 Sonar analysis and quality gate run on `main` after merge; ordinary same-repository
 PRs retain their pre-merge Sonar check. The PR author determines this boundary,

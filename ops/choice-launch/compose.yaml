@@ -1,0 +1,8 @@
+# Apply after ../choice-preview/compose.yaml under a new explicit project name.
+services:
+  api:
+    restart: unless-stopped
+  db:
+    restart: unless-stopped
+  cloudflared:
+    restart: unless-stopped
