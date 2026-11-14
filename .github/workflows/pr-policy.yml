@@ -20,6 +20,47 @@ jobs:
           script: |
             const pullRequest = context.payload.pull_request;
             const branch = pullRequest.head.ref;
+
+            async function validateDependabot() {
+              const repository = `${context.repo.owner}/${context.repo.repo}`;
+              if (pullRequest.user.type !== 'Bot' || pullRequest.head.repo?.full_name !== repository) {
+                core.setFailed('Dependabot updates must come from the verified bot in this repository.');
+                return;
+              }
+
+              const ecosystem = /^dependabot\/(npm_and_yarn|github_actions)\/.+$/.exec(branch)?.[1];
+              if (!ecosystem) {
+                core.setFailed('Dependabot updates must use a supported dependency-update branch.');
+                return;
+              }
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                ...context.repo,
+                pull_number: pullRequest.number,
+                per_page: 100,
+              });
+              if (files.length === 0 || files.length !== pullRequest.changed_files) {
+                core.setFailed('Could not validate the complete Dependabot file list.');
+                return;
+              }
+
+              const allowedPath = ecosystem === 'npm_and_yarn'
+                ? (path) => /^(package\.json|package-lock\.json)$/.test(path)
+                : (path) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
+              if (!files.every((file) => allowedPath(file.filename)
+                && (!file.previous_filename || allowedPath(file.previous_filename)))) {
+                core.setFailed('Dependabot updates may change only dependency files for their ecosystem.');
+                return;
+              }
+
+              core.info('Verified dependency-only Dependabot update; no separate closing issue is required.');
+            }
+
+            if (pullRequest.user?.login === 'dependabot[bot]') {
+              await validateDependabot();
+              return;
+            }
+
             const branchPattern = /^(feat|fix|chore|docs|refactor|test|ci|perf)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
             if (!branchPattern.test(branch)) {
               core.setFailed(`Branch "${branch}" must use <type>/<short-description>, for example feat/standalone-client.`);
