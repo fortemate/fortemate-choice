@@ -30,6 +30,25 @@ function route(
 	return { methods: ['GET'] };
 }
 
+function upstreamHeaders(request: Request, target: NonNullable<ReturnType<typeof route>>): Headers {
+	const headers = new Headers();
+	const allowed = ['Content-Type', 'Accept', 'Origin'];
+	if (target.socket)
+		allowed.push(
+			'Upgrade',
+			'Connection',
+			'Sec-WebSocket-Key',
+			'Sec-WebSocket-Version',
+			'Sec-WebSocket-Protocol',
+		);
+	if (target.rematch) allowed.push('X-Laboratory-Seat-Token');
+	for (const name of allowed) {
+		const value = request.headers.get(name);
+		if (value !== null) headers.set(name, value);
+	}
+	return headers;
+}
+
 /** Forward the laboratory allowlist through its configured private service binding. */
 export async function privateApi(
 	request: Request,
@@ -56,21 +75,7 @@ export async function privateApi(
 	if (!target.socket && upgrade !== null)
 		return respond('WebSocket upgrades require a game socket route', 400);
 
-	const headers = new Headers();
-	const allowed = ['Content-Type', 'Accept', 'Origin'];
-	if (target.socket)
-		allowed.push(
-			'Upgrade',
-			'Connection',
-			'Sec-WebSocket-Key',
-			'Sec-WebSocket-Version',
-			'Sec-WebSocket-Protocol',
-		);
-	if (target.rematch) allowed.push('X-Laboratory-Seat-Token');
-	for (const name of allowed) {
-		const value = request.headers.get(name);
-		if (value !== null) headers.set(name, value);
-	}
+	const headers = upstreamHeaders(request, target);
 	try {
 		const response = await binding.fetch(`http://choice-preview-api${url.pathname}`, {
 			method: request.method,

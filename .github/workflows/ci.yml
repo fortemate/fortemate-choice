@@ -78,9 +78,9 @@ jobs:
         run: docker compose --file ops/choice-preview/compose.yaml config --quiet
         env:
           CHOICE_PREVIEW_ORIGIN: https://choice-preview-web.example.test
-          CHOICE_PREVIEW_APP_PASSWORD_FILE: /tmp/choice-preview-app
-          CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE: /tmp/choice-preview-admin
-          CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: /tmp/choice-preview-tunnel
+          CHOICE_PREVIEW_APP_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-app
+          CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE: ${{ runner.temp }}/choice-preview-admin
+          CHOICE_PREVIEW_TUNNEL_TOKEN_FILE: ${{ runner.temp }}/choice-preview-tunnel
 
       - name: Analyze with SonarQube Cloud
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
