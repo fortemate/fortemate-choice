@@ -1,7 +1,7 @@
 /** Exercise unsafe rendered Compose overrides without Docker, certificates, or credentials. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateRehearsal, IMAGES, APP_ORIGIN } from './configuration.mjs';
+import { validateRehearsal, IMAGES, APP_ORIGIN, PREVIEW_ORIGIN } from './configuration.mjs';
 
 function fixture() {
 	const project = 'lab229-test';
@@ -50,6 +50,43 @@ function fixture() {
 
 test('accepts a closed, loopback-only, pinned rehearsal', () => {
 	assert.equal(validateRehearsal(fixture(), 'lab229-test').name, 'lab229-test');
+});
+
+test('accepts the local preview only when its exact frontend origin is requested', () => {
+	const config = fixture();
+	config.services.api.environment.LAB_FRONTEND_ORIGIN = PREVIEW_ORIGIN;
+	assert.equal(
+		validateRehearsal(config, 'lab229-test', { frontendOrigin: PREVIEW_ORIGIN }),
+		config,
+	);
+	assert.throws(() => validateRehearsal(config, 'lab229-test'));
+	assert.throws(() =>
+		validateRehearsal(fixture(), 'lab229-test', { frontendOrigin: PREVIEW_ORIGIN }),
+	);
+});
+
+test('requires exact CORS origin without additional origins, paths or wildcard', () => {
+	for (const frontendOrigin of [APP_ORIGIN, PREVIEW_ORIGIN]) {
+		for (const cors of [`${frontendOrigin},https://public.example`, `${frontendOrigin}/`, '*']) {
+			const config = fixture();
+			config.services.api.environment.LAB_FRONTEND_ORIGIN = cors;
+			assert.throws(() => validateRehearsal(config, 'lab229-test', { frontendOrigin }));
+		}
+	}
+});
+
+test('refuses public and unapproved loopback frontend origins even when CORS matches', () => {
+	for (const frontendOrigin of [
+		'https://public.example',
+		'http://127.0.0.1:8788',
+		'http://localhost:8787',
+		'https://127.0.0.1:8787',
+		`${PREVIEW_ORIGIN}/`,
+	]) {
+		const config = fixture();
+		config.services.api.environment.LAB_FRONTEND_ORIGIN = frontendOrigin;
+		assert.throws(() => validateRehearsal(config, 'lab229-test', { frontendOrigin }));
+	}
 });
 
 test('allows password file paths but refuses token and secret environment entries', () => {

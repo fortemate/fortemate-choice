@@ -2,7 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import type { LaboratoryGameState } from '../../src/lib/laboratory/api';
 import type { Action } from '../../src/lib/laboratory/protocol';
 
-const APP_ORIGIN = 'http://127.0.0.1:4175';
+const APP_ORIGIN = process.env.CHOICE_TEST_APP_ORIGIN ?? 'http://127.0.0.1:4175';
+if (!['http://127.0.0.1:4175', 'http://127.0.0.1:8787'].includes(APP_ORIGIN)) {
+	throw new Error('Browser fixtures require the loopback app on port 4175 or 8787');
+}
 const API_ORIGIN = 'http://127.0.0.1:8081';
 const RULES_VERSION = '0.18.2';
 const STANDARD_DFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';

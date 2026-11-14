@@ -12,3 +12,5 @@ playwright-report/
 *.local
 .DS_Store
 .scannerwork/
+.cloudflare/
+dist-hosting/

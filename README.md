@@ -6,7 +6,7 @@ Roll once to reveal both pairs, confirm one whole pair, then play the two dice u
 
 ## Development
 
-Use Node.js 26; `mise.toml` also provides the optional Git-hook tools. The pinned rules package `@fortemate/dicechess-engine@0.18.2` and all tooling resolve from the public npm registry. Installation requires no private package credentials.
+Use Node.js 26.13.1 from `mise.toml`, which also provides the optional Git-hook tools. The pinned rules package `@fortemate/dicechess-engine@0.18.2` and all tooling resolve from the public npm registry. Installation requires no private package credentials.
 
 ```sh
 mise trust
@@ -34,9 +34,13 @@ mise exec -- npm run test:e2e
 
 The reports imported with these harnesses describe earlier donor qualifications. New extraction evidence belongs in the current PR or a separately dated report.
 
+## Hosting preview
+
+The [hosting decision](docs/hosting-decision.md) selects Cloudflare Workers Static Assets for the client and keeps PostgreSQL for the separate API. The [preview runbook](docs/hosting-preview.md) covers the optional native build, loopback preview and full isolated-service qualification. These checks require Linux/WSL for the Cloudflare runtime on Windows ARM. No cloud account, deployment token or public resource is needed for local qualification.
+
 ## Repository boundaries
 
-This repository owns the client, its package lock, tests and CI. The API, laboratory database, game rules engine and live pilot remain separate. Its workflows check PRs and main; they do not deploy anything. Cloudflare or AWS hosting, domain cutover and removal of the donor client are separate future changes.
+This repository owns the client, its package lock, tests, CI and optional hosting adapter. The API, laboratory database, game rules engine and live pilot remain separate. Its workflows check PRs and main; they do not deploy anything. Public hosting activation, domain cutover and removal of the donor client require separate changes.
 
 Keep the existing backend contract and browser storage identifiers when changing the visible brand. A future domain change needs an explicit plan for existing invitation links and seat recovery; browser storage does not move between origins.
 

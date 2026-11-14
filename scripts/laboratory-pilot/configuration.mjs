@@ -9,12 +9,22 @@ export const IMAGES = {
 	db: 'postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',
 };
 export const APP_ORIGIN = 'https://localhost:8443';
+export const PREVIEW_ORIGIN = 'http://127.0.0.1:8787';
 export const API_ORIGIN = 'https://localhost:9443';
 
 // Stable byte ordering keeps rendered configuration checks independent of host locale.
 const compareNames = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
 
-export function validateRehearsal(config, project) {
+export function validateFrontendOrigin(frontendOrigin) {
+	assert.ok(
+		[APP_ORIGIN, PREVIEW_ORIGIN].includes(frontendOrigin),
+		'Frontend origin must be an approved loopback rehearsal endpoint',
+	);
+	return frontendOrigin;
+}
+
+export function validateRehearsal(config, project, { frontendOrigin = APP_ORIGIN } = {}) {
+	validateFrontendOrigin(frontendOrigin);
 	assert.match(project, /^lab229-[a-z0-9-]+$/);
 	assert.equal(config.name, project);
 	assert.deepEqual(Object.keys(config.services).sort(compareNames), ['api', 'db', 'gateway']);
@@ -71,7 +81,7 @@ export function validateRehearsal(config, project) {
 	assert.equal(api.PLAY_RUNTIME_MODE, 'laboratory');
 	assert.equal(api.LAB_DB_URL, 'jdbc:postgresql://db:5432/laboratory');
 	assert.equal(api.LAB_DB_USER, 'laboratory_app');
-	assert.equal(api.LAB_FRONTEND_ORIGIN, APP_ORIGIN);
+	assert.equal(api.LAB_FRONTEND_ORIGIN, frontendOrigin);
 	assert.equal(api.LAB_ADMISSION_OPEN, 'false', 'Start every rehearsal with admission closed');
 	for (const secret of Object.values(config.secrets)) {
 		assert.ok(secret.file);
