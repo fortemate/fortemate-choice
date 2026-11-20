@@ -21,8 +21,8 @@ the preview. Never reuse an existing project name or set a global `COMPOSE_PROJE
 
 On Linux/WSL, run from the repository root. These reserved examples are configuration
 fixtures; put real coordinates and absolute secret-file paths in the private operator
-record outside the repository. Secret files contain the values; environment variables
-contain paths only.
+record outside the repository. Keep secret values in files; environment variables
+contain their paths and non-secret deployment settings.
 
 ```sh
 export CHOICE_RELEASE_ORIGIN=https://choice.example.test
@@ -33,6 +33,10 @@ export CHOICE_PREVIEW_JOIN_WINDOW_SECONDS=300
 export CHOICE_PREVIEW_APP_PASSWORD_FILE=/run/choice-example/app-password
 export CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE=/run/choice-example/admin-password
 export CHOICE_PREVIEW_TUNNEL_TOKEN_FILE=/run/choice-example/tunnel-token
+# Fixtures only: replace with reserved CIDRs disjoint from the preview and real networks.
+export CHOICE_DATABASE_SUBNET=10.250.11.0/28
+export CHOICE_EDGE_SUBNET=10.250.11.16/28
+export CHOICE_CONNECTOR_SUBNET=10.250.11.32/28
 
 docker compose --project-name choice-release-example \
   --file ops/choice-preview/compose.yaml \
@@ -49,6 +53,13 @@ pins, resource bounds, file-backed secrets, health checks and network isolation 
 in the base file. There are no published API/database ports or external shared networks.
 An operator stop remains stopped across daemon restarts; a container failure restarts
 the owned service. Recheck the rendered configuration before activation.
+
+The three `CHOICE_*_SUBNET` values are required by the base file. Supply them through
+the release's own private operator file, with an allocation different from the
+preview. Do not copy the preview's subnet values when reusing the blueprint. Check
+LAN/VLAN/VPN routes and all existing Docker networks first; the example CIDRs above
+are configuration fixtures. Follow the blueprint's backup and volume-preservation
+procedure for any later subnet change.
 
 The release build selects Worker `fortemate-choice`, separately from the preview
 Worker. Its private binding points only at the release VPC Service. The API's exact

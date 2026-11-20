@@ -35,6 +35,7 @@
 		"format:check": "prettier --check .",
 		"test": "vitest run && npm run test:laboratory:oracle && npm run test:laboratory:pilot:unit",
 		"test:ci-policy": "node --test scripts/pr-policy.test.mjs scripts/ci-events.test.mjs",
+		"test:choice:networks": "node --test scripts/choice-networks.test.mjs",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"prepare": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",

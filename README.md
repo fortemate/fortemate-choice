@@ -2,7 +2,7 @@
 
 Two dice pairs. One choice. A standalone, experimental Dice Chess client for playing with a friend, without bots or ratings.
 
-Roll once to reveal both pairs, confirm one whole pair, then play the two dice using the existing rules. Complete legal turns are sent automatically. The client supports invitation links, reconnect, finished-game review, transcript export, and light, dark or system appearance.
+Roll once to reveal both pairs, choose one whole pair with a click or tap, then play the two dice using the existing rules. Complete legal turns are sent automatically. The client supports invitation links, reconnect, finished-game review, transcript export, and light, dark or system appearance.
 
 ## Development
 
