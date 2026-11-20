@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import type { LaboratoryGameState } from '../../src/lib/laboratory/api';
 import type { Action } from '../../src/lib/laboratory/protocol';
 
+test.use({ hasTouch: true });
+
 const APP_ORIGIN = process.env.CHOICE_TEST_APP_ORIGIN ?? 'http://127.0.0.1:4175';
 if (!['http://127.0.0.1:4175', 'http://127.0.0.1:8787'].includes(APP_ORIGIN)) {
 	throw new Error('Browser fixtures require the loopback app on port 4175 or 8787');
@@ -267,6 +269,21 @@ async function expectMinimumTarget(page: Page, locator: ReturnType<Page['getByRo
 	expect(box?.height).toBeGreaterThanOrEqual(44);
 }
 
+async function expectMobileChoiceLayout(page: Page, width: number) {
+	const header = await page.locator('.lab-header').boundingBox();
+	expect(header!.height).toBeLessThanOrEqual(56);
+	for (const control of await page.locator('.lab-header button, .lab-header select').all()) {
+		const box = await control.boundingBox();
+		if (box) expect(box.height).toBeGreaterThanOrEqual(44);
+	}
+	for (const die of await page.locator('.lab-pair-card .lab-die').all()) {
+		const box = (await die.boundingBox())!;
+		expect(box.width).toBeGreaterThanOrEqual(40);
+		expect(box.height).toBeGreaterThanOrEqual(40);
+		if (width >= 390) expect(box.width).toBeGreaterThanOrEqual(44);
+	}
+}
+
 test('creates and joins one room across independent browser contexts', async ({
 	page,
 	browser,
@@ -326,8 +343,9 @@ test('creates and joins one room across independent browser contexts', async ({
 				for (const card of await page.locator('.lab-pair-card').all()) {
 					const box = (await card.boundingBox())!;
 					expect(box.height).toBeGreaterThanOrEqual(44);
-					expect(box.height).toBeLessThanOrEqual(84);
+					expect(box.height).toBeLessThanOrEqual(104);
 				}
+				await expectMobileChoiceLayout(page, width);
 				await page.screenshot({
 					path: testInfo.outputPath(`lab-phone-${width}-pairs-${colorScheme}.png`),
 					fullPage: true,
@@ -335,8 +353,12 @@ test('creates and joins one room across independent browser contexts', async ({
 			}
 		}
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.getByRole('button', { name: /^Pair 1:/ }).click();
-		await page.getByRole('button', { name: 'Confirm pair 1' }).click();
+		await expect(page.getByRole('button', { name: /confirm.*pair/i })).toHaveCount(0);
+		await page.getByRole('button', { name: /^Pair 1:/ }).tap();
+		await expect
+			.poll(() => fixture.socketFrames.filter((frame) => 'LabCommand' in frame))
+			.toHaveLength(3);
+		expect(fixture.records.get(gameId)!.state.lab.turn.selectedPairIndex).toBe(0);
 		await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Submit turn', exact: true })).toHaveCount(0);
 		for (const square of ['e2', 'e4'])
@@ -441,16 +463,16 @@ test('captures desktop and phone creation, invitation, and light/dark waiting bo
 		for (const theme of ['light', 'dark'] as const) {
 			await page.getByRole('combobox', { name: 'Appearance' }).selectOption(theme);
 			await expectNoHorizontalOverflow(page);
-			await expectMinimumTarget(page, page.getByRole('button', { name: 'Confirm one whole pair' }));
+			await expect(page.getByRole('button', { name: /confirm.*pair/i })).toHaveCount(0);
+			await expectMinimumTarget(page, page.getByRole('button', { name: /^Pair 1:/ }));
 			// Catch collapsed nested board rows as well as overflow in the shipped CSS.
 			const cell = await page.getByRole('gridcell', { name: 'a8, Black rook' }).boundingBox();
 			expect(cell!.height).toBeGreaterThan(25);
 			expect(Math.abs(cell!.height - cell!.width)).toBeLessThan(2);
+			if (width <= 430) await expectMobileChoiceLayout(page, width);
 			if (width === 390) {
-				const confirm = await page
-					.getByRole('button', { name: 'Confirm one whole pair' })
-					.boundingBox();
-				expect(confirm!.y + confirm!.height).toBeLessThanOrEqual(height);
+				const pairs = await page.locator('.lab-pair-cards').boundingBox();
+				expect(pairs!.y + pairs!.height).toBeLessThanOrEqual(height);
 			}
 			await page.screenshot({
 				path: testInfo.outputPath(`lab-choice-${width}-${theme}.png`),
@@ -464,3 +486,34 @@ test('captures desktop and phone creation, invitation, and light/dark waiting bo
 	expect(fixture.pageErrors).toEqual([]);
 	expect(fixture.consoleErrors).toEqual([]);
 });
+
+for (const key of ['Enter', 'Space']) {
+	test(`chooses a pair with ${key} without a confirmation step`, async ({ page }) => {
+		const fixture = await installMocks(page);
+		await page.goto('/');
+		await createGame(page);
+		await page.getByRole('link', { name: 'Open my board' }).click();
+		const room = fixture.records.get(fixture.latestGameId)!;
+		room.state.version++;
+		room.state.lab.turn = {
+			phase: 'AwaitingPairChoice',
+			offers: [
+				[1, 2],
+				[1, 3],
+			],
+			selectedPairIndex: null,
+		};
+		await page.reload();
+		const pair = page.getByRole('button', { name: /^Pair 1:/ });
+		await expect(pair).toBeEnabled();
+		await expect(pair).toBeFocused();
+		await expect(page.getByRole('button', { name: /confirm.*pair/i })).toHaveCount(0);
+		await pair.press(key);
+		await expect.poll(() => room.state.lab.turn.selectedPairIndex).toBe(0);
+		const commands = fixture.socketFrames.filter((frame) => 'LabCommand' in frame);
+		expect(commands).toHaveLength(1);
+		expect(commands[0]).toMatchObject({ LabCommand: { action: { ChoosePair: { pairIndex: 0 } } } });
+		await expect(page.getByRole('grid')).toHaveAttribute('aria-disabled', 'false');
+		expect(fixture.pageErrors).toEqual([]);
+	});
+}
