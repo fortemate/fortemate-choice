@@ -15,6 +15,22 @@ Provide these required values in the operator's local environment before using t
 | `CHOICE_PREVIEW_APP_PASSWORD_FILE`      | Path to the dedicated database application-role password file.                                             |
 | `CHOICE_PREVIEW_DB_ADMIN_PASSWORD_FILE` | Path to the PostgreSQL bootstrap administrator password file.                                              |
 | `CHOICE_PREVIEW_TUNNEL_TOKEN_FILE`      | Path to the token file for this dedicated Cloudflare Tunnel.                                               |
+| `CHOICE_DATABASE_SUBNET`                | Reserved IPv4 CIDR for this project's private database network.                                            |
+| `CHOICE_EDGE_SUBNET`                    | Different reserved IPv4 CIDR for this project's internal API/connector network.                            |
+| `CHOICE_CONNECTOR_SUBNET`               | Different reserved IPv4 CIDR for this project's outbound connector network.                                |
+
+Copy [operator.env.example](operator.env.example) to a private operator file outside
+the repository, then replace every fixture value. Reserve three mutually disjoint
+CIDRs that do not overlap LANs, VLANs, VPNs, host routes or existing container networks.
+Use different ranges for every preview and release deployment. A project name scopes
+resource names; it does not reserve distinct IP ranges. Even an `internal` Docker
+network adds a host route and can divert traffic intended for a real LAN.
+
+Compose requires all three subnet values and refuses to render when one is missing.
+The example ranges are fixtures, not an allocation or a guarantee that they are free
+on an operator's network. Small subnets are enough for these services; allow room for
+the gateway, service addresses and transient replacement containers. Record the actual
+allocation privately and use the same operator file for every Compose operation.
 
 The Compose file reads secrets through file-backed Compose secrets. The API and PostgreSQL use distinct non-root identities, read-only root filesystems, dropped Linux capabilities, `no-new-privileges`, bounded CPU/memory, and narrowly sized temporary filesystems. The API uses the pinned laboratory API image and the existing laboratory entrypoint and database initialization SQL. PostgreSQL 18.6 creates its own `laboratory` database and `laboratory_app` role. Admission defaults closed (`LAB_ADMISSION_OPEN=false`). Set `CHOICE_PREVIEW_ADMISSION_OPEN=true` only after the Access policy is active and anonymous-denial checks pass.
 
@@ -30,6 +46,16 @@ The API joins only the private database and internal edge networks. PostgreSQL j
 6. Record the resource identities, health/authorization results, and backup/retention choice in the owner-controlled operations record. Do not include account identifiers, tunnel tokens, public/live origins, or private host details in this repository.
 
 This is an activation sequence, not authorization to create Cloudflare resources, publish a hostname, or change any live pilot. There are no credentials, DNS operations, or deployment commands in this document.
+
+## Network allocation changes
+
+Changing a subnet requires recreating the affected project's networks. Before an
+owner-approved network migration, save the configuration and take a verified database
+backup, stop writes to that project and preserve its existing named volume. Recreate
+only that project's containers and networks with the reserved CIDRs; never use
+volume-removing shutdown or cleanup. Verify the volume identity and database contents,
+API health, connector transport and affected LAN routes afterwards. Update the private
+deployment record and operator file so the next deployment retains the allocation.
 
 ## Shutdown and data retention
 

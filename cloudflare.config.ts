@@ -1,25 +1,22 @@
 import { bindings, defineConfig } from 'cf/config';
-import { closedPreviewSettings } from './hosting/closed-preview.ts';
+import { deploymentSettings } from './hosting/deployment-settings.ts';
 
-// Local asset verification and an explicitly configured closed deployment share one client.
+// Release and preview are explicit targets; neither can replace the other implicitly.
 export default defineConfig(({ mode }) => {
-	if (mode !== 'cloudflare-preview' && mode !== 'cloudflare-closed-preview') {
-		throw new Error('Use an explicit Cloudflare preview mode');
-	}
-	const closed = mode === 'cloudflare-closed-preview' ? closedPreviewSettings(process.env) : null;
+	const { workerName, privateApi } = deploymentSettings(mode, process.env);
 	return {
 		worker: {
-			name: 'fortemate-choice-preview',
+			name: workerName,
 			compatibilityDate: '2026-11-14',
 			entrypoint: './hosting/worker.ts',
 			workersDev: false,
 			previewUrls: false,
-			domains: closed ? [new URL(closed.origin).hostname] : [],
-			env: closed
+			domains: privateApi ? [new URL(privateApi.origin).hostname] : [],
+			env: privateApi
 				? {
 						ASSETS: bindings.assets(),
-						PRIVATE_API: bindings.vpcService({ id: closed.serviceId }),
-						PREVIEW_ORIGIN: bindings.text(closed.origin),
+						PRIVATE_API: bindings.vpcService({ id: privateApi.serviceId }),
+						PREVIEW_ORIGIN: bindings.text(privateApi.origin),
 					}
 				: { ASSETS: bindings.assets() },
 			assets: { htmlHandling: 'none', notFoundHandling: 'none' },

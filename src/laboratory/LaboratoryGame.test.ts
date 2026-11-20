@@ -31,7 +31,6 @@ function model(turn: PublicTurn = choice, overrides: Record<string, unknown> = {
 		connected: true,
 		pending: false,
 		error: null,
-		tentative: null,
 		draft: [],
 		tree: null,
 		boardDfen: dfen,
@@ -43,8 +42,7 @@ function model(turn: PublicTurn = choice, overrides: Record<string, unknown> = {
 		drawArmed: false,
 		clock: vi.fn(() => '10:00'),
 		offerPlayable: vi.fn(() => true),
-		chooseTentative: vi.fn(),
-		confirmPair: vi.fn(),
+		choosePair: vi.fn(),
 		rollingDice: false,
 		rollDice: vi.fn(),
 		move: vi.fn(),
@@ -72,23 +70,39 @@ describe('LaboratoryGame screen', () => {
 		).toBeInTheDocument();
 	});
 
-	it('keeps both whole pairs visible and requires explicit confirmation before play', async () => {
+	it('sends a clicked pair immediately and waits for the authoritative choice before enabling the board', async () => {
 		const { game, value } = model();
 		const { rerender } = render(LaboratoryGameScreen, { game });
-		expect(screen.getByRole('button', { name: 'Confirm one whole pair' })).toBeDisabled();
+		expect(screen.queryByRole('button', { name: /confirm.*pair/i })).not.toBeInTheDocument();
+		expect(screen.getAllByRole('button', { name: /^Pair [12]:/ })).toHaveLength(2);
 		expect(screen.getByRole('grid', { name: 'White board' })).toHaveAttribute(
 			'aria-disabled',
 			'true',
 		);
 		await fireEvent.click(screen.getByRole('button', { name: 'Pair 2: pawn and rook' }));
-		expect(value.chooseTentative).toHaveBeenCalledExactlyOnceWith(1);
-		expect(value.confirmPair).not.toHaveBeenCalled();
-		await rerender({ game: model(choice, { tentative: 1, confirmPair: value.confirmPair }).game });
-		await fireEvent.click(screen.getByRole('button', { name: 'Confirm pair 2' }));
-		expect(value.confirmPair).toHaveBeenCalledOnce();
-		await rerender({ game: model(choice, { pending: true, canAct: false, tentative: 1 }).game });
-		expect(screen.getByRole('button', { name: 'Pair 1: pawn and bishop' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Confirm pair 2' })).toBeDisabled();
+		expect(value.choosePair).toHaveBeenCalledExactlyOnceWith(1);
+		expect(screen.getByRole('button', { name: 'Pair 2: pawn and rook' })).toHaveAttribute(
+			'aria-pressed',
+			'false',
+		);
+		await rerender({ game: model(choice, { pending: true, canAct: false }).game });
+		expect(screen.getByText(/Choosing pair/).closest('[role="status"]')).toBeInTheDocument();
+		for (const card of screen.getAllByRole('button', { name: /^Pair [12]:/ }))
+			expect(card).toBeDisabled();
+		expect(screen.getByRole('grid', { name: 'White board' })).toHaveAttribute(
+			'aria-disabled',
+			'true',
+		);
+		const playing: PublicTurn = { ...choice, phase: 'PlayingSelectedPair', selectedPairIndex: 1 };
+		await rerender({ game: model(playing, { canMove: true }).game });
+		expect(screen.getByRole('button', { name: 'Pair 2: pawn and rook' })).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		);
+		expect(screen.getByRole('grid', { name: 'White board' })).toHaveAttribute(
+			'aria-disabled',
+			'false',
+		);
 	});
 
 	it('hides the partial offer while waiting for an interrupted roll to be finished', async () => {

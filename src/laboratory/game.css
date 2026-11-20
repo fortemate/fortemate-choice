@@ -113,7 +113,6 @@
 	line-height: 1.45;
 	text-align: center;
 }
-.lab-pair-tentative,
 .lab-pair-chosen {
 	background: var(--lab-selection);
 	border-color: var(--lab-action);
@@ -135,6 +134,10 @@
 .lab-pair-placeholder > span:nth-child(2) {
 	font-family: Georgia, serif;
 	font-size: 27px;
+}
+.lab-choice-status {
+	font-size: 12px;
+	color: var(--lab-muted);
 }
 .lab-remaining-dice {
 	display: none;
@@ -297,8 +300,8 @@
 		gap: 10px;
 	}
 	.lab-game-title {
-		font-size: 24px;
-		letter-spacing: -0.5px;
+		font-size: 18px;
+		letter-spacing: -0.3px;
 	}
 	.lab-turn-label {
 		font-size: 10px;
@@ -324,12 +327,12 @@
 		min-width: 76px;
 	}
 	.lab-action-panel {
-		padding: 14px;
-		gap: 11px;
+		padding: 10px;
+		gap: 8px;
 		border-radius: 12px;
 	}
 	.lab-action-panel h2 {
-		font-size: 23px;
+		font-size: 20px;
 	}
 	.lab-action-head {
 		display: none;
@@ -344,30 +347,23 @@
 	}
 	.lab-pair-card,
 	.lab-pair-placeholder {
-		min-height: 52px;
-		padding: 6px 8px;
-		gap: 3px 6px;
-		grid-template-columns: minmax(0, 1fr) auto;
+		min-height: 84px;
+		padding: 7px 8px;
+		gap: 6px;
+		grid-template-columns: 1fr;
 		align-content: center;
 	}
-	.lab-pair-card {
-		grid-template-rows: auto auto;
-	}
 	.lab-pair-caption {
-		grid-column: 1;
-		grid-row: 1;
 		align-items: center;
 		font-size: 11px;
 	}
 	.lab-pair-dice {
-		grid-column: 2;
-		grid-row: 1 / span 2;
-		gap: 3px;
+		gap: 6px;
 	}
 	.lab-pair-dice .lab-die {
-		width: 27px;
-		height: 30px;
-		border-radius: 5px;
+		width: clamp(40px, 12vw, 48px);
+		height: clamp(40px, 12vw, 48px);
+		border-radius: 7px;
 	}
 	.lab-pair-state {
 		grid-column: 1 / -1;
@@ -397,8 +393,8 @@
 		gap: 2px;
 	}
 	.lab-remaining-dice .lab-die {
-		width: 20px;
-		height: 22px;
+		width: 32px;
+		height: 34px;
 		border-radius: 4px;
 	}
 	.lab-remaining-dice .lab-die img {
