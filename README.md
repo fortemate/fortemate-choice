@@ -2,7 +2,7 @@
 
 Two dice pairs. One choice. A standalone, experimental Dice Chess client for playing with a friend, without bots or ratings.
 
-Roll once to reveal both pairs, confirm one whole pair, then play the two dice using the existing rules. Complete legal turns are sent automatically. The client supports invitation links, reconnect, finished-game review, transcript export, and light, dark or system appearance.
+Roll once to reveal both pairs, choose one whole pair with a click or tap, then play the two dice using the existing rules. Complete legal turns are sent automatically. The client supports invitation links, reconnect, finished-game review, transcript export, and light, dark or system appearance.
 
 ## Development
 
@@ -39,6 +39,13 @@ The reports imported with these harnesses describe earlier donor qualifications.
 The [hosting decision](docs/hosting-decision.md) selects Cloudflare Workers Static Assets for the client and keeps PostgreSQL for the separate API. The [preview runbook](docs/hosting-preview.md) covers the optional native build, loopback preview and full isolated-service qualification. These checks require Linux/WSL for the Cloudflare runtime on Windows ARM. No cloud account, deployment token or public resource is needed for local qualification.
 
 ## Repository boundaries
+
+The [Choice launch runbook](ops/choice-launch/README.md) prepares a dedicated
+`cloudflare-release` build with an explicitly selected branded origin and private
+API service. It starts with a new isolated database and keeps closed Access; old
+laboratory games, invitation links and browser storage are not migrated. The
+release Worker is separate from the preview. `npm run build:release` builds only;
+CI validates reserved example coordinates without deploying or changing DNS.
 
 Dependabot PRs run the full test and build pipeline without Sonar credentials. Their
 Sonar analysis and quality gate run on `main` after merge; ordinary same-repository

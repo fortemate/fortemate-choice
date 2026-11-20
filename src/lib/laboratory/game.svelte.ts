@@ -22,7 +22,6 @@ export class LaboratoryGame {
 	connected = $state(false);
 	pending = $state(false);
 	error = $state<string | null>(null);
-	tentative = $state<PairIndex | null>(null);
 	draft = $state<string[]>([]);
 	tree = $state<MoveTree | null>(null);
 	drawArmed = $state(false);
@@ -91,7 +90,6 @@ export class LaboratoryGame {
 		if (changed) {
 			this.treeEpoch += 1;
 			this.draft = [];
-			this.tentative = null;
 			this.tree = validMoveTree(state.legalMoves) ? state.legalMoves : null;
 		}
 		this.state = state;
@@ -133,7 +131,6 @@ export class LaboratoryGame {
 		if (resynced) {
 			this.clearPending();
 			this.draft = [];
-			this.tentative = null;
 		}
 	}
 	private clearPending(): void {
@@ -268,17 +265,9 @@ export class LaboratoryGame {
 	rollSecond(): void {
 		if (this.state?.lab.turn.phase === 'AwaitingSecondRoll') this.command({ RollSecond: {} });
 	}
-	chooseTentative(index: PairIndex): void {
-		if (
-			this.canAct &&
-			this.state?.lab.turn.phase === 'AwaitingPairChoice' &&
-			(index === 0 || index === 1)
-		)
-			this.tentative = index;
-	}
-	confirmPair(): void {
-		if (this.tentative !== null && this.state?.lab.turn.phase === 'AwaitingPairChoice')
-			this.command({ ChoosePair: { pairIndex: this.tentative } });
+	choosePair(index: PairIndex): void {
+		if (this.state?.lab.turn.phase !== 'AwaitingPairChoice' || (index !== 0 && index !== 1)) return;
+		this.command({ ChoosePair: { pairIndex: index } });
 	}
 	move(uci: string): void {
 		if (!this.moves.includes(uci)) return;
@@ -328,7 +317,6 @@ export class LaboratoryGame {
 		this.state = null;
 		this.draft = [];
 		this.tree = null;
-		this.tentative = null;
 		this.error = null;
 		this.lastPass = null;
 		this.drawArmed = false;

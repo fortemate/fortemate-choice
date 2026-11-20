@@ -746,6 +746,31 @@ legend {
 	}
 }
 @media (max-width: 700px) {
+	.lab-at-board .lab-header {
+		min-height: 56px;
+		gap: 8px;
+	}
+	.lab-at-board .lab-brand {
+		min-height: 44px;
+		padding: 4px 0;
+		font-size: 18px;
+		gap: 6px;
+	}
+	.lab-at-board .lab-brand img {
+		width: 24px;
+		height: 24px;
+	}
+	.lab-at-board .lab-brand-sub {
+		margin-top: 0;
+		font-size: 8px;
+	}
+	.lab-at-board .lab-header-controls {
+		gap: 8px;
+	}
+	.lab-at-board main {
+		padding-top: 8px;
+		padding-bottom: 12px;
+	}
 	.lab-surface {
 		max-width: 540px;
 		padding: 0 22px;
